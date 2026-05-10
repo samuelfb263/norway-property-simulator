@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Norway Property Investment Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f3; color: #1a1a18; padding: 1.5rem; font-size: 15px; line-height: 1.45; }
+  .sim-wrap { max-width: 880px; margin: 0 auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 19px; font-weight: 500; color: #1a1a18; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .lang-toggle { display: inline-flex; border: 0.5px solid rgba(0,0,0,0.25); border-radius: 8px; overflow: hidden; }
+  .lang-toggle button { font-size: 12px; padding: 5px 12px; border: 0; background: transparent; cursor: pointer; color: #5f5e5a; }
+  .lang-toggle button.active { background: #1a1a18; color: #f5f5f3; font-weight: 500; }
+  .btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.25); background: #fff; color: #1a1a18; cursor: pointer; }
+  .btn:hover { background: #f1efe8; }
+
+  /* Verdict panel */
+  .verdict { border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; border: 0.5px solid rgba(0,0,0,0.12); }
+  .verdict.good { background: #EAF4EE; border-color: #C5DECF; }
+  .verdict.warn { background: #FEF7E6; border-color: #EDD9A8; }
+  .verdict.bad { background: #FBEAEA; border-color: #E8C4C4; }
+  .verdict-head { display: flex; align-items: center; gap: 12px; margin-bottom: 0.6rem; }
+  .verdict-light { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .verdict.good .verdict-light { background: #0F6E56; color: #fff; }
+  .verdict.warn .verdict-light { background: #BA7517; color: #fff; }
+  .verdict.bad .verdict-light { background: #A32D2D; color: #fff; }
+  .verdict-headline { font-size: 16px; font-weight: 500; color: #1a1a18; }
+  .verdict-sub { font-size: 12px; color: #5f5e5a; margin-top: 2px; }
+  .verdict-list { font-size: 13px; list-style: none; }
+  .verdict-list li { padding: 4px 0 4px 22px; position: relative; color: #1a1a18; }
+  .verdict-list li::before { position: absolute; left: 0; font-weight: 600; }
+  .verdict-list li.good::before { content: "✓"; color: #0F6E56; }
+  .verdict-list li.warn::before { content: "!"; color: #BA7517; }
+  .verdict-list li.bad::before { content: "✗"; color: #A32D2D; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+  .metric { background: #fff; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 10px; padding: 0.75rem 1rem; }
+  .metric-label { font-size: 11px; color: #888780; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .metric-val { font-size: 19px; font-weight: 500; color: #1a1a18; }
+  .metric-sub { font-size: 11px; color: #888780; margin-top: 2px; }
+  .metric.good .metric-val { color: #0F6E56; }
+  .metric.warn .metric-val { color: #BA7517; }
+  .metric.bad .metric-val { color: #A32D2D; }
+
+  /* Sections + tabs */
+  .section { background: #fff; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .section-title { font-size: 12px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+  .section-intro { font-size: 12px; color: #5f5e5a; margin-bottom: 0.85rem; padding: 8px 12px; background: #f8f7f3; border-radius: 6px; border-left: 2px solid #534AB7; }
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .slider-label { font-size: 13px; color: #5f5e5a; flex: 0 0 240px; }
+  .slider-row input[type=range] { flex: 1; min-width: 120px; accent-color: #534AB7; }
+  .slider-val { font-size: 13px; font-weight: 500; min-width: 90px; text-align: right; color: #1a1a18; }
+  .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .toggle-row .slider-label { flex: 0 0 240px; }
+  .pill-toggle { display: inline-flex; border: 0.5px solid rgba(0,0,0,0.25); border-radius: 8px; overflow: hidden; }
+  .pill-toggle button { font-size: 12px; padding: 4px 12px; border: 0; background: transparent; cursor: pointer; color: #5f5e5a; }
+  .pill-toggle button.active { background: #534AB7; color: #fff; font-weight: 500; }
+  .breakdown { font-size: 13px; }
+  .breakdown-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 0.5px solid rgba(0,0,0,0.08); gap: 12px; }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .lbl { color: #5f5e5a; }
+  .breakdown-row .val { color: #1a1a18; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .breakdown-row.total { font-weight: 500; }
+  .breakdown-row.pos .val { color: #0F6E56; }
+  .breakdown-row.neg .val { color: #A32D2D; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { font-size: 13px; padding: 5px 13px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.25); cursor: pointer; background: transparent; color: #5f5e5a; }
+  .tab.active { background: #1a1a18; color: #fff; font-weight: 500; border-color: #1a1a18; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .divider { height: 0.5px; background: rgba(0,0,0,0.08); margin: 0.6rem 0; }
+  .note { background: #FEF7E6; border-left: 2px solid #BA7517; padding: 8px 12px; font-size: 12px; color: #5f5e5a; border-radius: 4px; margin-top: 0.5rem; }
+  .note strong { color: #1a1a18; }
+  .fx-box { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #EAF4EE; border-radius: 8px; font-size: 13px; gap: 8px; flex-wrap: wrap; }
+  .fx-box .fx-rate { font-weight: 500; color: #0F6E56; }
+  .fx-box small { font-size: 11px; color: #888780; }
+  .chart-wrap { position: relative; height: 360px; margin-bottom: 1rem; }
+  .chart-toggles { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 0.75rem; font-size: 12px; }
+  .chart-toggles label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #5f5e5a; }
+  .verified-list { font-size: 12px; color: #5f5e5a; }
+  .verified-list li { margin-bottom: 6px; padding-left: 18px; position: relative; list-style: none; }
+  .verified-list li::before { content: "✓"; position: absolute; left: 0; color: #0F6E56; font-weight: 600; }
+  .verified-list a { color: #534AB7; }
+
+  /* Scenarios table */
+  .scen-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .scen-table th, .scen-table td { padding: 8px 10px; text-align: right; border-bottom: 0.5px solid rgba(0,0,0,0.08); }
+  .scen-table th { font-weight: 500; font-size: 11px; color: #888780; text-transform: uppercase; letter-spacing: 0.04em; text-align: right; background: #f8f7f3; }
+  .scen-table th:first-child, .scen-table td:first-child { text-align: left; }
+  .scen-table tr.base td { font-weight: 500; background: #f8f7f3; }
+  .scen-table .v-pos { color: #0F6E56; }
+  .scen-table .v-neg { color: #A32D2D; }
+  .scen-table .desc { font-size: 11px; color: #888780; display: block; }
+  .cashflow-table th, .cashflow-table td { padding: 5px 7px; font-size: 12px; }
+  .cashflow-table tr.purchase td { background: #FBEAEA; font-weight: 500; }
+  .cashflow-table tr.sale td { background: #EAF4EE; font-weight: 500; }
+  .cashflow-table tr.total td { font-weight: 600; border-top: 1px solid #888780; background: #1a1a18; color: #fff; }
+  .cf-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+  .cf-stat { background: #f1efe8; border-radius: 8px; padding: 0.65rem 0.85rem; }
+  .cf-stat-lbl { font-size: 10px; color: #888780; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .cf-stat-val { font-size: 16px; font-weight: 500; color: #1a1a18; font-variant-numeric: tabular-nums; }
+
+  /* Sub-section grouping in parameters */
+  .subgroup { padding: 0.6rem 0; border-bottom: 0.5px solid rgba(0,0,0,0.08); }
+  .subgroup:last-child { border-bottom: none; }
+  .subgroup-title { font-size: 12px; font-weight: 500; color: #1a1a18; margin-bottom: 0.5rem; }
+
+  @media (max-width: 540px) {
+    .slider-label { flex: 0 0 100%; min-width: 0; }
+    .toggle-row .slider-label { flex: 0 0 100%; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    body { padding: 1rem; font-size: 14px; }
+    .verdict-list li { font-size: 12px; }
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .topbar-actions, .tabs { display: none; }
+    .tab-content { display: block !important; page-break-after: always; }
+    .section { border: 1px solid #ddd; box-shadow: none; }
+    .chart-wrap { height: 280px; }
+  }
+</style>
+</head>
+<body>
+<div class="sim-wrap">
+  <div class="topbar">
+    <h1 data-i18n="title">Simulador de Investimento Imobiliário — Noruega</h1>
+    <div class="topbar-actions">
+      <div class="lang-toggle">
+        <button id="lang-pt" class="active" onclick="setLang('pt')">PT-BR</button>
+        <button id="lang-en" onclick="setLang('en')">EN</button>
+      </div>
+      <button class="btn" onclick="window.print()" data-i18n="print">Imprimir / PDF</button>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="verdict-head">
+      <div class="verdict-light" id="verdict-light">·</div>
+      <div>
+        <div class="verdict-headline" id="verdict-headline"></div>
+        <div class="verdict-sub" id="verdict-sub"></div>
+      </div>
+    </div>
+    <ul class="verdict-list" id="verdict-list"></ul>
+  </div>
+
+  <div class="metrics" id="summary-metrics"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="inputs" onclick="switchTab('inputs')" data-i18n="tab_inputs">Parâmetros</button>
+    <button class="tab" data-tab="rental" onclick="switchTab('rental')" data-i18n="tab_rental">Aluguel</button>
+    <button class="tab" data-tab="wealth" onclick="switchTab('wealth')" data-i18n="tab_wealth">Wealth tax</button>
+    <button class="tab" data-tab="sale" onclick="switchTab('sale')" data-i18n="tab_sale">Venda futura</button>
+    <button class="tab" data-tab="cashflow" onclick="switchTab('cashflow')" data-i18n="tab_cashflow">Fluxo de caixa</button>
+    <button class="tab" data-tab="chart" onclick="switchTab('chart')" data-i18n="tab_chart">Linha do tempo</button>
+    <button class="tab" data-tab="scenarios" onclick="switchTab('scenarios')" data-i18n="tab_scenarios">Cenários</button>
+    <button class="tab" data-tab="brazil" onclick="switchTab('brazil')" data-i18n="tab_brazil">Capital BR</button>
+    <button class="tab" data-tab="notes" onclick="switchTab('notes')" data-i18n="tab_notes">Notas fiscais</button>
+  </div>
+
+  <div id="tab-inputs" class="tab-content active">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_inputs">Ajuste os parâmetros abaixo. O veredito e as métricas no topo recalculam automaticamente.</div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_current">Sua situação atual</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_primVal">primærbolig (casa principal) — valor (MNOK)</span>
+          <input type="range" id="primVal" min="3" max="15" step="0.1" value="6.4">
+          <span class="slider-val" id="primVal-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_primDebt">primærbolig — dívida atual (MNOK)</span>
+          <input type="range" id="primDebt" min="0" max="12" step="0.1" value="5.3">
+          <span class="slider-val" id="primDebt-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_income">Renda bruta anual combinada (MNOK)</span>
+          <input type="range" id="income" min="0.5" max="5" step="0.1" value="2.1">
+          <span class="slider-val" id="income-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_otherAssets">Outros ativos — poupança + fundos (MNOK)</span>
+          <input type="range" id="otherAssets" min="0" max="5" step="0.1" value="0.8">
+          <span class="slider-val" id="otherAssets-out"></span>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_assetType">Tipo dos outros ativos</span>
+          <div class="pill-toggle">
+            <button id="assetType-cash" class="active" onclick="setAssetType('cash')" data-i18n="opt_cash">Dinheiro / banco (100%)</button>
+            <button id="assetType-fund" onclick="setAssetType('fund')" data-i18n="opt_fund">aksjefond (fundos, 80%)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_property">O imóvel-alvo (sekundærbolig)</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_secVal">Preço do imóvel (MNOK)</span>
+          <input type="range" id="secVal" min="1" max="12" step="0.1" value="5.0">
+          <span class="slider-val" id="secVal-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_ltv">LTV — financiamento (%)</span>
+          <input type="range" id="ltv" min="0" max="90" step="5" value="80">
+          <span class="slider-val" id="ltv-out"></span>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_propType">Tipo de propriedade</span>
+          <div class="pill-toggle">
+            <button id="propType-selveier" class="active" onclick="setPropType('selveier')" data-i18n="opt_selveier">selveier (propriedade plena)</button>
+            <button id="propType-borettslag" onclick="setPropType('borettslag')" data-i18n="opt_borettslag">borettslag (cooperativa)</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_location">Localização</span>
+          <div class="pill-toggle">
+            <button id="loc-other" class="active" onclick="setLocation('other')" data-i18n="opt_locOther">Bærum / fora de Oslo</button>
+            <button id="loc-oslo" onclick="setLocation('oslo')" data-i18n="opt_locOslo">Oslo</button>
+          </div>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_rate">Taxa de juros do empréstimo (%)</span>
+          <input type="range" id="rate" min="2" max="8" step="0.1" value="5.0">
+          <span class="slider-val" id="rate-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_loanTerm">Prazo do financiamento — Annuitetslån (anos)</span>
+          <input type="range" id="loanTerm" min="10" max="30" step="1" value="25">
+          <span class="slider-val" id="loanTerm-out"></span>
+        </div>
+        <div class="note" id="oslo-note" style="display:none"></div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_rental">Suposições de aluguel e custos</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_rent">Aluguel mensal estimado (KNOK)</span>
+          <input type="range" id="rent" min="5" max="40" step="1" value="18">
+          <span class="slider-val" id="rent-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_opex">Despesas operacionais / ano (KNOK)</span>
+          <input type="range" id="opex" min="0" max="120" step="1" value="60">
+          <span class="slider-val" id="opex-out"></span>
+        </div>
+        <div class="note" data-i18n="opex_note"></div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_ownUse">Semanas de uso próprio / ano</span>
+          <input type="range" id="ownUse" min="0" max="12" step="1" value="0">
+          <span class="slider-val" id="ownUse-out"></span>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_horizon">Horizonte e mercado</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_years">Anos até a venda</span>
+          <input type="range" id="years" min="1" max="25" step="1" value="10">
+          <span class="slider-val" id="years-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_appreciation">Valorização anual estimada (%)</span>
+          <input type="range" id="appreciation" min="-2" max="8" step="0.1" value="3.0">
+          <span class="slider-val" id="appreciation-out"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-rental" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_rental">Quanto o imóvel rende (ou custa) por ano. Se o líquido for negativo, você tira do bolso todo mês.</div>
+      <div class="section-title" data-i18n="sec_rental">Fluxo de caixa anual do aluguel</div>
+      <div class="breakdown" id="rental-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-wealth" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_wealth">A Noruega tributa patrimônio líquido acima de 3,8 MNOK (casal). Com 5,3M de dívida na casa principal seu patrimônio líquido fica baixo — provavelmente paga zero.</div>
+      <div class="section-title" data-i18n="sec_wealth_calc">formuesskatt — cálculo 2026</div>
+      <div class="breakdown" id="wealth-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-sale" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_sale">Resultado se você vender no final do horizonte. Inclui CGT de 22% sobre o ganho (sem isenção em sekundærbolig) e quitação do saldo da dívida.</div>
+      <div class="section-title" data-i18n="sec_sale">Projeção de venda</div>
+      <div class="breakdown" id="sale-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-cashflow" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_cashflow">Fluxo de caixa real ano a ano com Annuitetslån (parcela fixa, juros caem com o tempo). Linha 0 = compra; última linha inclui a venda. Lucro/prejuízo do aluguel é tributado a 22% — quando dá prejuízo, vira crédito fiscal (rentefradrag) que reduz o IR sobre outras rendas.</div>
+      <div class="section-title" data-i18n="sec_cashflow">Fluxo de caixa detalhado</div>
+      <div id="cashflow-summary" style="font-size: 13px; margin-bottom: 0.75rem;"></div>
+      <div style="overflow-x: auto;">
+        <table class="scen-table cashflow-table" id="cashflow-table"></table>
+      </div>
+      <div class="note" data-i18n="cashflow_note"></div>
+    </div>
+  </div>
+
+  <div id="tab-chart" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_chart">Como cada componente evolui ano a ano. O patrimônio líquido (verde) é o que importa: valor − dívida + caixa acumulado.</div>
+      <div class="section-title" data-i18n="sec_timeline">Linha do tempo</div>
+      <div class="chart-toggles" id="chart-toggles">
+        <label><input type="checkbox" id="ck-value" checked> <span data-i18n="ck_value">Valor do imóvel</span></label>
+        <label><input type="checkbox" id="ck-debt" checked> <span data-i18n="ck_debt">Dívida remanescente</span></label>
+        <label><input type="checkbox" id="ck-cash" checked> <span data-i18n="ck_cash">Fluxo de caixa acumulado</span></label>
+        <label><input type="checkbox" id="ck-equity" checked> <span data-i18n="ck_equity">Patrimônio líquido</span></label>
+      </div>
+      <div class="chart-wrap"><canvas id="timeline-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="tab-scenarios" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_scenarios">Teste de stress: e se as suposições derem errado? Compara o retorno em 6 cenários alternativos.</div>
+      <div class="section-title" data-i18n="sec_scenarios">Análise de sensibilidade</div>
+      <div style="overflow-x: auto;">
+        <table class="scen-table" id="scen-table"></table>
+      </div>
+      <div class="note" id="breakeven-note"></div>
+    </div>
+  </div>
+
+  <div id="tab-brazil" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_brazil">Para trazer o capital de entrada do Brasil, você perde IOF (1,1%) + spread cambial da remessa (~1,5–2%). Modele aqui.</div>
+      <div class="section-title" data-i18n="sec_brazil">Origem do capital — Brasil → Noruega</div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_brl">Valor enviado do Brasil (BRL, milhares)</span>
+        <input type="range" id="brlAmount" min="100" max="3000" step="50" value="1500">
+        <span class="slider-val" id="brlAmount-out"></span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_iof">IOF sobre câmbio (%)</span>
+        <input type="range" id="iof" min="0" max="3.5" step="0.05" value="1.1">
+        <span class="slider-val" id="iof-out"></span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_spread">Spread da remessa — Remessa Online / Wise / banco (%)</span>
+        <input type="range" id="spread" min="0" max="5" step="0.1" value="1.8">
+        <span class="slider-val" id="spread-out"></span>
+      </div>
+      <div class="fx-box" id="fx-box">
+        <span data-i18n="fx_loading">Carregando cotação BRL/NOK…</span>
+      </div>
+      <div class="breakdown" id="brazil-breakdown" style="margin-top: 1rem;"></div>
+      <div class="note" data-i18n="brazil_note"></div>
+    </div>
+  </div>
+
+  <div id="tab-notes" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_notes">Cada premissa fiscal usada no simulador, verificada nas fontes oficiais (Skatteetaten, Regnskap Norge, Finanstilsynet).</div>
+      <div class="section-title" data-i18n="sec_verified">Premissas fiscais — Noruega 2026</div>
+      <ul class="verified-list" id="verified-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const i18n = {
+  pt: {
+    title: "Simulador de Investimento Imobiliário — Noruega",
+    print: "Imprimir / PDF",
+    tab_inputs: "Parâmetros",
+    tab_rental: "Aluguel",
+    tab_wealth: "Wealth tax",
+    tab_sale: "Venda futura",
+    tab_cashflow: "Fluxo de caixa",
+    tab_chart: "Linha do tempo",
+    tab_scenarios: "Cenários",
+    tab_brazil: "Capital BR",
+    tab_notes: "Notas fiscais",
+    intro_inputs: "Ajuste os parâmetros abaixo. O veredito e as métricas no topo recalculam automaticamente.",
+    intro_cashflow: "Fluxo de caixa real ano a ano com Annuitetslån (parcela fixa, juros caem com o tempo). Linha 0 = compra; última linha inclui a venda. Lucro/prejuízo do aluguel é tributado a 22% — quando dá prejuízo, vira crédito fiscal (rentefradrag) que reduz o IR sobre outras rendas.",
+    sec_cashflow: "Fluxo de caixa detalhado",
+    cashflow_note: "<strong>Como ler:</strong> coluna IR é negativa quando há lucro tributável (você paga IR) e positiva quando há prejuízo (rentefradrag = crédito fiscal contra outras rendas). Δ Wealth tax é a diferença causada por adicionar o imóvel ao seu patrimônio.",
+    lbl_loanTerm: "Prazo do financiamento — Annuitetslån (anos)",
+    intro_rental: "Quanto o imóvel rende (ou custa) por ano. Se o líquido for negativo, você tira do bolso todo mês.",
+    intro_wealth: "A Noruega tributa patrimônio líquido acima do bunnfradrag (3,8 MNOK para casal em 2026). Com dívida alta na casa principal o patrimônio líquido fica baixo.",
+    intro_sale: "Resultado se você vender no final do horizonte. Inclui CGT de 22% sobre o ganho (sem isenção em sekundærbolig) e quitação do saldo da dívida.",
+    intro_chart: "Como cada componente evolui ano a ano. O patrimônio líquido (verde) é o que importa: valor − dívida + caixa acumulado.",
+    intro_scenarios: "Teste de stress: e se as suposições derem errado? Compara o retorno em 6 cenários alternativos.",
+    intro_brazil: "Para trazer o capital de entrada do Brasil você perde IOF (1,1%) + spread cambial da remessa (~1,5–2%). Modele aqui.",
+    intro_notes: "Cada premissa fiscal usada no simulador, verificada nas fontes oficiais.",
+    grp_current: "Sua situação atual",
+    grp_property: "O imóvel-alvo (sekundærbolig)",
+    grp_rental: "Suposições de aluguel e custos",
+    grp_horizon: "Horizonte e mercado",
+    sec_rental: "Fluxo de caixa anual do aluguel",
+    sec_wealth_calc: "formuesskatt — cálculo 2026",
+    sec_sale: "Projeção de venda",
+    sec_timeline: "Linha do tempo",
+    sec_scenarios: "Análise de sensibilidade",
+    sec_brazil: "Origem do capital — Brasil → Noruega",
+    sec_verified: "Premissas fiscais verificadas — Noruega 2026",
+    lbl_primVal: "primærbolig (casa principal) — valor (MNOK)",
+    lbl_primDebt: "primærbolig — dívida atual (MNOK)",
+    lbl_income: "Renda bruta anual combinada (MNOK)",
+    lbl_otherAssets: "Outros ativos — poupança + fundos (MNOK)",
+    lbl_assetType: "Tipo dos outros ativos",
+    lbl_secVal: "Preço do imóvel (MNOK)",
+    lbl_ltv: "LTV — financiamento (%)",
+    lbl_propType: "Tipo de propriedade",
+    lbl_location: "Localização",
+    lbl_rate: "Taxa de juros do empréstimo (%)",
+    lbl_rent: "Aluguel mensal estimado (KNOK)",
+    lbl_opex: "Despesas operacionais / ano (KNOK)",
+    lbl_ownUse: "Semanas de uso próprio / ano",
+    lbl_years: "Anos até a venda",
+    lbl_appreciation: "Valorização anual estimada (%)",
+    lbl_brl: "Valor enviado do Brasil (BRL, milhares)",
+    lbl_iof: "IOF sobre câmbio (%)",
+    lbl_spread: "Spread da remessa (%)",
+    opt_cash: "Dinheiro / banco (100%)",
+    opt_fund: "aksjefond (fundos, 80%)",
+    opt_selveier: "selveier (propriedade plena)",
+    opt_borettslag: "borettslag (cooperativa)",
+    opt_locOther: "Bærum / fora de Oslo",
+    opt_locOslo: "Oslo",
+    fx_loading: "Carregando cotação BRL/NOK…",
+    fx_source: "via",
+    osloNote: "<strong>Regra de Oslo:</strong> sekundærbolig em Oslo exige 40% de entrada (LTV máx 60%). Seu LTV ultrapassa o limite — ajuste se for comprar em Oslo.",
+    opex_note: "<strong>O que incluir:</strong> felleskostnader (taxa de condomínio, ~30–60 KNOK/ano), seguro (~5–8 KNOK), reserva de manutenção (~1% do valor), eventual gestão (~10% do aluguel). Ignore juros — já calculados separadamente.",
+    brazil_note: "<strong>Atenção:</strong> também declare a remessa no SCE-IF do Banco Central (acima de USD 50k) e na DIRPF brasileira no ano seguinte. Sem IRPF sobre transferência para conta própria, mas o saldo no exterior precisa ser declarado anualmente.",
+    weeks: "semanas",
+    week: "semana",
+    years_unit: "anos",
+    year_unit: "ano",
+    zero: "Zero",
+    m_metric_debt: "Dívida total",
+    m_metric_room: "Espaço para nova dívida",
+    m_metric_wealth: "Wealth tax / ano",
+    m_metric_cf: "Fluxo de caixa / mês",
+    m_metric_equity: "Capital de entrada",
+    m_metric_gain: "Retorno em",
+    m_limit: "limite 5×",
+    m_required: "necessário",
+    m_netWealth: "patrimônio líquido",
+    m_yield: "yield líquido",
+    m_dokavg: "+ dokumentavgift",
+    m_no_dokavg: "sem dokumentavgift",
+    m_cgt: "CGT",
+    m_total: "total",
+    m_annualized: "anualizado",
+    vd_good_head: "Investimento parece fazer sentido com seus parâmetros atuais",
+    vd_warn_head: "Marginal — atenção aos pontos abaixo antes de decidir",
+    vd_bad_head: "Não recomendado com os parâmetros atuais",
+    vd_sub_year: "Avaliando horizonte de {y} anos.",
+    vd_debt_no: "<strong>Banco não aprovará:</strong> dívida total ({d}) excede o limite de 5× renda ({l}).",
+    vd_debt_tight: "<strong>Limite de dívida apertado:</strong> {d} de {l}. Pouca margem para imprevistos.",
+    vd_debt_ok: "<strong>Capacidade de crédito ok:</strong> sobra {r} de folga abaixo do limite de 5× renda.",
+    vd_oslo: "<strong>Regra de Oslo:</strong> em Oslo o LTV máximo é 60%. Reduza o LTV ou compre fora de Oslo.",
+    vd_cf_positive: "<strong>Aluguel cobre os custos:</strong> +{cf}/mês de líquido (yield {y}).",
+    vd_cf_neutral: "<strong>Aluguel quase empata:</strong> {cf}/mês. Você não tira nem coloca dinheiro.",
+    vd_cf_negative: "<strong>Aluguel não cobre os custos:</strong> {cf}/mês de prejuízo. Você banca {ann}/ano até vender.",
+    vd_wealth_zero: "<strong>Sem wealth tax adicional:</strong> patrimônio líquido permanece abaixo do bunnfradrag de 3,8 MNOK.",
+    vd_wealth_some: "<strong>Wealth tax adicional:</strong> {wt}/ano que você não pagaria sem o imóvel.",
+    vd_return_neg: "<strong>Retorno total negativo:</strong> {r} em {y} anos. Provavelmente não vale.",
+    vd_return_low: "<strong>Retorno baixo:</strong> {a} ao ano sobre o capital. Renda fixa norueguesa rende similar com menos risco.",
+    vd_return_ok: "<strong>Retorno atraente:</strong> {a} ao ano (= {r} em {y} anos sobre {e} de capital).",
+    vd_breakeven: "<strong>Ponto de equilíbrio:</strong> precisa de {b} ao ano de valorização para retorno zero.",
+    w_prim_low: "primærbolig (até 10M × 25%)",
+    w_prim_high: "primærbolig (acima de 10M × 70%)",
+    w_sec: "sekundærbolig (× 100%)",
+    w_other_cash: "Outros ativos — dinheiro (× 100%)",
+    w_other_fund: "Outros ativos — aksjefond (× 80%)",
+    w_debt: "Dívida total",
+    w_net: "Patrimônio líquido tributável",
+    w_threshold: "bunnfradrag (faixa de isenção do casal)",
+    w_taxable: "Base tributável acima do bunnfradrag",
+    w_tax: "Wealth tax anual",
+    w_delta_label: "Aumento causado pelo imóvel",
+    r_weeks: "Semanas alugadas / ano",
+    r_gross_m: "Receita bruta de aluguel — mês",
+    r_gross_y: "Receita bruta — ano",
+    r_interest: "Juros (dedutíveis)",
+    r_opex: "Despesas operacionais",
+    r_taxable: "Lucro tributável",
+    r_tax: "IR sobre aluguel (22%)",
+    r_net_y: "Líquido — ano",
+    r_net_m: "Líquido — mês",
+    r_after: "Líquido após amortização do principal",
+    r_grossY: "Yield bruto",
+    r_netY: "Yield líquido",
+    s_current: "Valor atual",
+    s_appr: "Valorização anual",
+    s_future: "Valor estimado em",
+    s_cost: "Custo de aquisição",
+    s_gain: "Ganho de capital tributável",
+    s_cgt: "CGT (22%)",
+    s_remaining: "Dívida remanescente na venda",
+    s_proceeds: "Líquido recebido na venda",
+    s_rental_total: "Aluguel líquido acumulado",
+    s_total: "Retorno total líquido",
+    s_ann: "Retorno anualizado sobre entrada",
+    ck_value: "Valor do imóvel",
+    ck_debt: "Dívida remanescente",
+    ck_cash: "Fluxo de caixa acumulado",
+    ck_equity: "Patrimônio líquido",
+    ch_year: "Ano",
+    ch_value: "Valor",
+    sc_col_label: "Cenário",
+    sc_col_cf: "Caixa / mês",
+    sc_col_total: "Retorno total",
+    sc_col_ann: "Anualizado",
+    sc_base: "Base — premissas atuais",
+    sc_rates: "Juros sobem +2 p.p.",
+    sc_flat: "Mercado flat (0% valorização)",
+    sc_down: "Crise — valor cai 20% antes da venda",
+    sc_vacancy: "Alta vacância (3 meses sem inquilino)",
+    sc_double: "Combo ruim (juros +1 p.p. & valor cai 10%)",
+    sc_best: "Tudo dá certo (juros −1 p.p. & valor +5%/ano)",
+    cf_col_year: "Ano",
+    cf_col_event: "Evento",
+    cf_col_rent: "Aluguel",
+    cf_col_interest: "Juros",
+    cf_col_principal: "Amortização",
+    cf_col_opex: "Opex",
+    cf_col_tax: "IR (aluguel)",
+    cf_col_wt: "Δ WT",
+    cf_col_capital: "Compra/Venda",
+    cf_col_net: "Caixa do ano",
+    cf_col_cum: "Acumulado",
+    cf_col_balance: "Saldo dívida",
+    cf_purchase: "Compra",
+    cf_hold: "Posse",
+    cf_sale: "Venda",
+    cf_total: "Total",
+    cf_stat_payment: "Parcela mensal fixa",
+    cf_stat_total_int: "Total de juros pagos",
+    cf_stat_total_tax: "Total IR aluguel",
+    cf_stat_total_credit: "Total crédito fiscal (rentefradrag)",
+    cf_stat_irr: "Retorno anualizado",
+    br_sent: "BRL enviado",
+    br_iof: "IOF",
+    br_spread: "Spread da remessa",
+    br_lost: "Total perdido em custos",
+    br_net_brl: "BRL convertido líquido",
+    br_rate: "Cotação aplicada (após custos)",
+    br_nok: "NOK recebido",
+    br_needed: "NOK necessário (entrada + dokavg)",
+    br_ok: "Suficiente",
+    br_short: "Falta",
+    fx_label: "Cotação ao vivo",
+    fx_failed: "Cotação ao vivo indisponível — usando 1,85 NOK / BRL.",
+    verified: [
+      { html: "<strong>bunnfradrag (faixa de isenção) do casal:</strong> 3,80 MNOK em 2026 (subiu de 3,52M em 2025). Solteiro: 1,90 MNOK." },
+      { html: "<strong>Alíquotas de wealth tax:</strong> 1,0% sobre patrimônio líquido entre bunnfradrag e 21,5 MNOK (por pessoa); 1,1% acima." },
+      { html: "<strong>Avaliação primærbolig:</strong> 25% até 10 MNOK, 70% acima." },
+      { html: "<strong>Avaliação sekundærbolig:</strong> 100% do valor de mercado (sem rabatt desde 2023)." },
+      { html: "<strong>Dinheiro / depósitos:</strong> 100%. <strong>aksjefond / ações listadas:</strong> 80% (20% de rabatt)." },
+      { html: "<strong>dokumentavgift:</strong> 2,5% sobre o preço para selveier. <strong>Borettslag / aksjeleilighet pagam 0%</strong> — só ~500 NOK de tinglysing." },
+      { html: "<strong>CGT (ganho de capital):</strong> 22% flat. Sem isenção em sekundærbolig." },
+      { html: "<strong>Imposto sobre aluguel:</strong> 22% sobre lucro (aluguel − juros − opex − manutenção). Sekundærbolig é totalmente tributável." },
+      { html: "<strong>Limite dívida/renda:</strong> 5× a renda bruta (utlånsforskriften)." },
+      { html: "<strong>LTV máximo — fora de Oslo:</strong> 90% para sekundærbolig (desde 2025+). Bancos costumam ser mais rígidos. <strong>Oslo:</strong> 60% máx." },
+      { html: "<strong>Tjenestepensjon (previdência ocupacional):</strong> excluída da base do wealth tax." },
+      { html: "<strong>IOF câmbio (Brasil):</strong> 1,1% sobre transferência ao exterior para conta própria. Spread Remessa Online / Wise tipicamente 1–2% acima da cotação comercial." }
+    ]
+  },
+  en: {
+    title: "Norway Property Investment Simulator",
+    print: "Print / PDF",
+    tab_inputs: "Parameters",
+    tab_rental: "Rental",
+    tab_wealth: "Wealth tax",
+    tab_sale: "Future sale",
+    tab_cashflow: "Cash flow",
+    tab_chart: "Timeline",
+    tab_scenarios: "Scenarios",
+    tab_brazil: "BR capital",
+    tab_notes: "Tax notes",
+    intro_inputs: "Adjust the parameters below. The verdict and metrics at the top update automatically.",
+    intro_cashflow: "Real year-by-year cash flow using Annuitetslån (fixed payment, interest decreases over time). Row 0 = purchase; last row includes the sale. Rental profit/loss is taxed at 22% — when there's a loss, it becomes a tax credit (rentefradrag) reducing income tax on your other earnings.",
+    sec_cashflow: "Detailed cash flow",
+    cashflow_note: "<strong>How to read:</strong> the Tax column is negative when there's taxable profit (you pay tax) and positive when there's a loss (rentefradrag = tax credit against other income). Δ Wealth tax is the difference caused by adding the property to your net wealth.",
+    lbl_loanTerm: "Loan term — Annuitetslån (years)",
+    intro_rental: "How much the property earns (or costs) per year. If net is negative you cover the gap monthly.",
+    intro_wealth: "Norway taxes net wealth above the bunnfradrag (3.8 MNOK for couples in 2026). With high primary-home debt, net wealth stays low — likely zero tax.",
+    intro_sale: "Outcome if you sell at the end of the horizon. Includes 22% CGT on the gain (no exemption for sekundærbolig) and remaining debt payoff.",
+    intro_chart: "How each component evolves year by year. Net equity (green) is what matters: value − debt + cumulative cash.",
+    intro_scenarios: "Stress test: what if your assumptions are wrong? Compares total return across 6 alternative scenarios.",
+    intro_brazil: "Bringing entry capital from Brazil costs IOF (1.1%) + remittance spread (~1.5–2%). Model it here.",
+    intro_notes: "Every tax assumption used in the simulator, verified against official sources.",
+    grp_current: "Your current situation",
+    grp_property: "Target property (sekundærbolig)",
+    grp_rental: "Rental & cost assumptions",
+    grp_horizon: "Horizon & market",
+    sec_rental: "Annual rental cash flow",
+    sec_wealth_calc: "formuesskatt — 2026 calculation",
+    sec_sale: "Sale projection",
+    sec_timeline: "Timeline",
+    sec_scenarios: "Sensitivity analysis",
+    sec_brazil: "Capital origin — Brazil → Norway",
+    sec_verified: "Verified Norway 2026 tax assumptions",
+    lbl_primVal: "primærbolig (primary home) value (MNOK)",
+    lbl_primDebt: "primærbolig debt (MNOK)",
+    lbl_income: "Combined gross annual income (MNOK)",
+    lbl_otherAssets: "Other assets — savings + funds (MNOK)",
+    lbl_assetType: "Other assets type",
+    lbl_secVal: "Property price (MNOK)",
+    lbl_ltv: "Loan LTV (%)",
+    lbl_propType: "Ownership type",
+    lbl_location: "Location",
+    lbl_rate: "Interest rate (%)",
+    lbl_rent: "Estimated monthly rent (KNOK)",
+    lbl_opex: "Operating expenses / year (KNOK)",
+    lbl_ownUse: "Weeks of own use / year",
+    lbl_years: "Years until sale",
+    lbl_appreciation: "Annual appreciation (%)",
+    lbl_brl: "Amount sent from Brazil (BRL, thousands)",
+    lbl_iof: "IOF on FX (%)",
+    lbl_spread: "Remittance spread (%)",
+    opt_cash: "Cash / bank (100%)",
+    opt_fund: "aksjefond (equity funds, 80%)",
+    opt_selveier: "selveier (freehold)",
+    opt_borettslag: "borettslag (co-op)",
+    opt_locOther: "Bærum / outside Oslo",
+    opt_locOslo: "Oslo",
+    fx_loading: "Loading BRL/NOK rate…",
+    fx_source: "via",
+    osloNote: "<strong>Oslo rule:</strong> sekundærbolig in Oslo requires 40% equity (60% max LTV). Your LTV exceeds this — adjust if buying in Oslo.",
+    opex_note: "<strong>What to include:</strong> felleskostnader (HOA fees, ~30–60 KNOK/yr), insurance (~5–8 KNOK), maintenance reserve (~1% of value), management (~10% of rent). Don't include interest — already separate.",
+    brazil_note: "<strong>Reminder:</strong> declare the remittance via SCE-IF at Banco Central (above USD 50k) and on the next-year DIRPF. No IRPF on transfers to your own account, but the foreign balance must be declared annually.",
+    weeks: "weeks",
+    week: "week",
+    years_unit: "years",
+    year_unit: "year",
+    zero: "Zero",
+    m_metric_debt: "Total debt",
+    m_metric_room: "Room for new debt",
+    m_metric_wealth: "Wealth tax / year",
+    m_metric_cf: "Cash flow / month",
+    m_metric_equity: "Equity needed",
+    m_metric_gain: "Return in",
+    m_limit: "5× cap",
+    m_required: "required",
+    m_netWealth: "net wealth",
+    m_yield: "net yield",
+    m_dokavg: "+ dokumentavgift",
+    m_no_dokavg: "no dokumentavgift",
+    m_cgt: "CGT",
+    m_total: "total",
+    m_annualized: "annualised",
+    vd_good_head: "This investment looks viable with your current inputs",
+    vd_warn_head: "Marginal — review the items below before deciding",
+    vd_bad_head: "Not recommended with current inputs",
+    vd_sub_year: "Evaluating a {y}-year horizon.",
+    vd_debt_no: "<strong>Bank won't approve:</strong> total debt ({d}) exceeds the 5× income cap ({l}).",
+    vd_debt_tight: "<strong>Tight debt limit:</strong> {d} of {l}. Little room for surprises.",
+    vd_debt_ok: "<strong>Borrowing capacity ok:</strong> {r} of headroom under the 5× income cap.",
+    vd_oslo: "<strong>Oslo rule:</strong> max LTV in Oslo is 60%. Lower LTV or buy outside Oslo.",
+    vd_cf_positive: "<strong>Rent covers costs:</strong> +{cf}/month net (yield {y}).",
+    vd_cf_neutral: "<strong>Rent roughly breaks even:</strong> {cf}/month.",
+    vd_cf_negative: "<strong>Rent doesn't cover costs:</strong> {cf}/month shortfall — you fund {ann}/year until sale.",
+    vd_wealth_zero: "<strong>No extra wealth tax:</strong> net wealth stays under the 3.8 MNOK bunnfradrag.",
+    vd_wealth_some: "<strong>Extra wealth tax:</strong> {wt}/year you wouldn't pay without the property.",
+    vd_return_neg: "<strong>Negative total return:</strong> {r} over {y} years. Probably not worth it.",
+    vd_return_low: "<strong>Low return:</strong> {a}/year on capital. Norwegian fixed income offers similar with less risk.",
+    vd_return_ok: "<strong>Attractive return:</strong> {a}/year (= {r} over {y} years on {e} of capital).",
+    vd_breakeven: "<strong>Break-even:</strong> needs {b}/year appreciation for zero return.",
+    w_prim_low: "primærbolig (up to 10M × 25%)",
+    w_prim_high: "primærbolig (over 10M × 70%)",
+    w_sec: "sekundærbolig (× 100%)",
+    w_other_cash: "Other assets — cash (× 100%)",
+    w_other_fund: "Other assets — aksjefond (× 80%)",
+    w_debt: "Total debt",
+    w_net: "Net taxable wealth",
+    w_threshold: "bunnfradrag (couple threshold)",
+    w_taxable: "Taxable base above threshold",
+    w_tax: "Annual wealth tax",
+    w_delta_label: "Increase caused by property",
+    r_weeks: "Weeks rented / year",
+    r_gross_m: "Gross rent — month",
+    r_gross_y: "Gross rent — year",
+    r_interest: "Interest (deductible)",
+    r_opex: "Operating expenses",
+    r_taxable: "Taxable profit",
+    r_tax: "Income tax on rental (22%)",
+    r_net_y: "Net — year",
+    r_net_m: "Net — month",
+    r_after: "Net after principal repayment",
+    r_grossY: "Gross yield",
+    r_netY: "Net yield",
+    s_current: "Current value",
+    s_appr: "Annual appreciation",
+    s_future: "Estimated value in",
+    s_cost: "Acquisition cost",
+    s_gain: "Taxable capital gain",
+    s_cgt: "CGT (22%)",
+    s_remaining: "Remaining debt at sale",
+    s_proceeds: "Net proceeds from sale",
+    s_rental_total: "Cumulative net rental",
+    s_total: "Total net return",
+    s_ann: "Annualised return on equity",
+    ck_value: "Property value",
+    ck_debt: "Remaining debt",
+    ck_cash: "Cumulative cash flow",
+    ck_equity: "Net equity",
+    ch_year: "Year",
+    ch_value: "Value",
+    sc_col_label: "Scenario",
+    sc_col_cf: "Cash / month",
+    sc_col_total: "Total return",
+    sc_col_ann: "Annualised",
+    sc_base: "Base — current assumptions",
+    sc_rates: "Rates rise +2 p.p.",
+    sc_flat: "Flat market (0% appreciation)",
+    sc_down: "Crisis — value drops 20% before sale",
+    sc_vacancy: "High vacancy (3 months without tenant)",
+    sc_double: "Bad combo (rates +1 p.p. & value −10%)",
+    sc_best: "Everything works (rates −1 p.p. & value +5%/yr)",
+    cf_col_year: "Year",
+    cf_col_event: "Event",
+    cf_col_rent: "Rent",
+    cf_col_interest: "Interest",
+    cf_col_principal: "Principal",
+    cf_col_opex: "Opex",
+    cf_col_tax: "Tax (rental)",
+    cf_col_wt: "Δ WT",
+    cf_col_capital: "Buy/Sell",
+    cf_col_net: "Net year",
+    cf_col_cum: "Cumulative",
+    cf_col_balance: "Debt balance",
+    cf_purchase: "Purchase",
+    cf_hold: "Hold",
+    cf_sale: "Sale",
+    cf_total: "Total",
+    cf_stat_payment: "Fixed monthly payment",
+    cf_stat_total_int: "Total interest paid",
+    cf_stat_total_tax: "Total rental tax",
+    cf_stat_total_credit: "Total tax credit (rentefradrag)",
+    cf_stat_irr: "Annualised return",
+    br_sent: "BRL sent",
+    br_iof: "IOF",
+    br_spread: "Remittance spread",
+    br_lost: "Total cost of bringing money",
+    br_net_brl: "Net BRL converted",
+    br_rate: "Effective rate (after costs)",
+    br_nok: "NOK received",
+    br_needed: "NOK needed (down payment + dokavg)",
+    br_ok: "Sufficient",
+    br_short: "Short by",
+    fx_label: "Live rate",
+    fx_failed: "Live rate unavailable — using 1.85 NOK / BRL.",
+    verified: [
+      { html: "<strong>Couple bunnfradrag:</strong> 3.80 MNOK for 2026 (up from 3.52M in 2025). Single: 1.90 MNOK." },
+      { html: "<strong>Wealth tax rates:</strong> 1.0% on net wealth between bunnfradrag and 21.5 MNOK (per person), 1.1% above." },
+      { html: "<strong>primærbolig valuation:</strong> 25% up to 10 MNOK, 70% above." },
+      { html: "<strong>sekundærbolig valuation:</strong> 100% of market value (no rabatt since 2023)." },
+      { html: "<strong>Cash / deposits:</strong> 100%. <strong>aksjefond / listed equities:</strong> 80% (20% rabatt)." },
+      { html: "<strong>dokumentavgift:</strong> 2.5% of price for selveier. <strong>Borettslag / aksjeleilighet pay 0%</strong> — only ~500 NOK tinglysing fee." },
+      { html: "<strong>Capital gains tax:</strong> 22% flat. No exemption for sekundærbolig." },
+      { html: "<strong>Rental income tax:</strong> 22% on profit. Sekundærbolig fully taxable." },
+      { html: "<strong>Debt-to-income cap:</strong> 5× gross income (utlånsforskriften)." },
+      { html: "<strong>Max LTV outside Oslo:</strong> 90% for sekundærbolig (2025+). Banks usually stricter. <strong>Oslo:</strong> 60% max." },
+      { html: "<strong>Tjenestepensjon:</strong> excluded from wealth tax base." },
+      { html: "<strong>IOF FX (Brazil):</strong> 1.1% on transfers abroad to own account. Remessa Online / Wise spread typically 1–2% above commercial rate." }
+    ]
+  }
+};
+
+let lang = 'pt';
+let propType = 'selveier';
+let assetType = 'cash';
+let osloMode = false;
+let fxRate = null;
+let fxSource = '';
+let chartInstance = null;
+
+function t(key) { return i18n[lang][key] ?? key; }
+function decSep() { return lang === 'pt' ? ',' : '.'; }
+function nFmt(n, d = 2) { return n.toFixed(d).replace('.', decSep()); }
+
+// Smart formatter: uses MNOK if magnitude >= 1, else KNOK
+function fmt(mnok, decM = 2) {
+  if (Math.abs(mnok) >= 1) return nFmt(mnok, decM) + ' MNOK';
+  return Math.round(mnok * 1000).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US') + ' KNOK';
+}
+function fmtM(mnok, d = 2) { return nFmt(mnok, d) + ' MNOK'; }
+function fmtK(mnok) { return Math.round(mnok * 1000).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US') + ' KNOK'; }
+function fmtSign(mnok) { return (mnok >= 0 ? '+' : '−') + fmt(Math.abs(mnok)); }
+function pct(v, d = 1) { return nFmt(v, d) + '%'; }
+
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l === 'pt' ? 'pt-BR' : 'en';
+  document.getElementById('lang-pt').classList.toggle('active', l === 'pt');
+  document.getElementById('lang-en').classList.toggle('active', l === 'en');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (i18n[l][key] !== undefined) el.innerHTML = i18n[l][key];
+  });
+  renderVerified();
+  update();
+}
+
+function setPropType(p) {
+  propType = p;
+  document.getElementById('propType-selveier').classList.toggle('active', p === 'selveier');
+  document.getElementById('propType-borettslag').classList.toggle('active', p === 'borettslag');
+  update();
+}
+
+function setAssetType(a) {
+  assetType = a;
+  document.getElementById('assetType-cash').classList.toggle('active', a === 'cash');
+  document.getElementById('assetType-fund').classList.toggle('active', a === 'fund');
+  update();
+}
+
+function setLocation(l) {
+  osloMode = (l === 'oslo');
+  document.getElementById('loc-other').classList.toggle('active', !osloMode);
+  document.getElementById('loc-oslo').classList.toggle('active', osloMode);
+  update();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'chart') renderChart();
+  if (name === 'scenarios') renderScenarios();
+  if (name === 'cashflow') renderCashflow();
+  if (name === 'brazil') updateFxBox();
+}
+
+function row(label, val, cls = '') {
+  return `<div class="breakdown-row ${cls}"><span class="lbl">${label}</span><span class="val">${val}</span></div>`;
+}
+
+function renderVerified() {
+  const list = i18n[lang].verified.map(v => `<li>${v.html}</li>`).join('');
+  document.getElementById('verified-list').innerHTML = list;
+}
+
+async function fetchFx() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=BRL&to=NOK');
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    fxRate = data.rates.NOK;
+    fxSource = 'frankfurter.app (ECB)';
+  } catch (e) {
+    try {
+      const r2 = await fetch('https://open.er-api.com/v6/latest/BRL');
+      const d2 = await r2.json();
+      fxRate = d2.rates.NOK;
+      fxSource = 'open.er-api.com';
+    } catch (e2) {
+      fxRate = 1.85;
+      fxSource = 'fallback';
+    }
+  }
+  updateFxBox();
+  update();
+}
+
+function updateFxBox() {
+  const fxBox = document.getElementById('fx-box');
+  if (!fxBox) return;
+  if (fxRate === null) {
+    fxBox.innerHTML = `<span>${t('fx_loading')}</span>`;
+    return;
+  }
+  const rateStr = nFmt(fxRate, 4);
+  fxBox.innerHTML = `
+    <span><strong>1 BRL = ${rateStr} NOK</strong> <small>(${t('fx_source')} ${fxSource})</small></span>
+    <span><small>${t('fx_label')}</small></span>
+  `;
+}
+
+function buildAmortSchedule(principal, annualRate, paymentYears, horizonYears) {
+  if (principal <= 0 || paymentYears <= 0) return { schedule: [], monthlyPayment: 0 };
+  const monthlyRate = annualRate / 12;
+  const totalMonths = paymentYears * 12;
+  const monthlyPayment = annualRate > 0
+    ? principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -totalMonths)))
+    : principal / totalMonths;
+  const schedule = [];
+  let balance = principal;
+  for (let y = 1; y <= horizonYears; y++) {
+    const balanceStart = balance;
+    let yI = 0, yP = 0;
+    for (let m = 0; m < 12; m++) {
+      if (balance <= 0.0001) break;
+      const i = balance * monthlyRate;
+      const p = Math.min(balance, monthlyPayment - i);
+      yI += i; yP += p;
+      balance -= p;
+    }
+    schedule.push({ year: y, balanceStart, interestPaid: yI, principalPaid: yP, balanceEnd: balance });
+  }
+  return { schedule, monthlyPayment };
+}
+
+function compute() {
+  const primVal = +document.getElementById('primVal').value;
+  const primDebt = +document.getElementById('primDebt').value;
+  const income = +document.getElementById('income').value;
+  const otherAssets = +document.getElementById('otherAssets').value;
+  const secVal = +document.getElementById('secVal').value;
+  const ltv = +document.getElementById('ltv').value / 100;
+  const rate = +document.getElementById('rate').value / 100;
+  const loanTerm = +document.getElementById('loanTerm').value;
+  const rent = +document.getElementById('rent').value / 1000;
+  const opex = +document.getElementById('opex').value / 1000;
+  const ownUse = +document.getElementById('ownUse').value;
+  const years = +document.getElementById('years').value;
+  const appreciation = +document.getElementById('appreciation').value / 100;
+  const brlAmount = +document.getElementById('brlAmount').value;
+  const iof = +document.getElementById('iof').value / 100;
+  const spread = +document.getElementById('spread').value / 100;
+
+  const secDebt = secVal * ltv;
+  const downPayment = secVal * (1 - ltv);
+  const stamp = propType === 'selveier' ? secVal * 0.025 : 0;
+  const equityNeeded = downPayment + stamp;
+  const totalDebt = primDebt + secDebt;
+  const debtLimit = income * 5;
+  const debtRoom = debtLimit - primDebt;
+
+  const THRESHOLD_COUPLE = 3.8;
+  const TIER2_COUPLE = 21.5 * 2;
+  const primBaseLow = Math.min(primVal, 10) * 0.25;
+  const primBaseHigh = Math.max(0, primVal - 10) * 0.70;
+  const primBase = primBaseLow + primBaseHigh;
+  const secBase = secVal * 1.0;
+  const otherFactor = assetType === 'fund' ? 0.80 : 1.0;
+  const otherBase = otherAssets * otherFactor;
+  const grossWealth = primBase + secBase + otherBase;
+  const netWealth = grossWealth - totalDebt;
+  const taxableWealth = Math.max(0, netWealth - THRESHOLD_COUPLE);
+  let wealthTax = 0;
+  if (taxableWealth > 0) {
+    const tier1Cap = TIER2_COUPLE - THRESHOLD_COUPLE;
+    if (taxableWealth <= tier1Cap) wealthTax = taxableWealth * 0.01;
+    else wealthTax = tier1Cap * 0.01 + (taxableWealth - tier1Cap) * 0.011;
+  }
+  // Wealth tax without the property
+  const grossWealthNoSec = primBase + otherBase;
+  const netWealthNoSec = grossWealthNoSec - primDebt;
+  const taxableNoSec = Math.max(0, netWealthNoSec - THRESHOLD_COUPLE);
+  let wealthTaxNoSec = 0;
+  if (taxableNoSec > 0) {
+    const tier1Cap = TIER2_COUPLE - THRESHOLD_COUPLE;
+    if (taxableNoSec <= tier1Cap) wealthTaxNoSec = taxableNoSec * 0.01;
+    else wealthTaxNoSec = tier1Cap * 0.01 + (taxableNoSec - tier1Cap) * 0.011;
+  }
+  const wealthTaxDelta = wealthTax - wealthTaxNoSec;
+
+  const rentWeeks = 52 - ownUse;
+  const rentFraction = rentWeeks / 52;
+  const grossRent = rent * 12 * rentFraction;
+  const deductibleOpex = opex * rentFraction;
+
+  // Annuitetslån schedule for the entire horizon
+  const amort = buildAmortSchedule(secDebt, rate, loanTerm, years);
+  const yearOne = amort.schedule[0] || { interestPaid: 0, principalPaid: 0, balanceEnd: secDebt };
+  const annualInterest = yearOne.interestPaid;     // year 1 interest (most conservative)
+  const annualPrincipal = yearOne.principalPaid;
+  const monthlyPayment = amort.monthlyPayment;
+  const remainingDebt = amort.schedule.length > 0 ? amort.schedule[amort.schedule.length - 1].balanceEnd : secDebt;
+
+  // Year 1 rental cashflow with full rentefradrag (loss generates tax credit)
+  const taxableProfitOrLossY1 = grossRent - annualInterest - deductibleOpex;
+  const rentalTaxY1 = taxableProfitOrLossY1 * 0.22;          // negative if loss = credit
+  const netCashflow = grossRent - annualInterest - opex - rentalTaxY1;
+  const cashflowAfterPrincipal = netCashflow - annualPrincipal;
+  const grossYield = secVal > 0 ? grossRent / secVal * 100 : 0;
+  const netYield = secVal > 0 ? netCashflow / secVal * 100 : 0;
+
+  // Sum total rental cashflow across all horizon years (juros varia ano a ano)
+  let totalRentalIncome = 0;
+  let totalInterestPaid = 0;
+  let totalRentalTax = 0;          // net (positive = tax paid; negative = credit received)
+  for (const yr of amort.schedule) {
+    const profit = grossRent - yr.interestPaid - deductibleOpex;
+    const tax = profit * 0.22;
+    const cf = grossRent - yr.interestPaid - opex - tax;
+    totalRentalIncome += cf;
+    totalInterestPaid += yr.interestPaid;
+    totalRentalTax += tax;
+  }
+
+  const futureVal = secVal * Math.pow(1 + appreciation, years);
+  const costBase = secVal + stamp;
+  const gain = futureVal - costBase;
+  const cgt = gain > 0 ? gain * 0.22 : 0;
+  const netProceeds = futureVal - remainingDebt - cgt;
+  const totalReturn = netProceeds - equityNeeded + totalRentalIncome;
+  const annualizedReturn = equityNeeded > 0
+    ? (Math.pow(Math.max(0.001, (equityNeeded + totalReturn)) / equityNeeded, 1 / years) - 1) * 100 : 0;
+
+  // Break-even appreciation: solve for appr such that totalReturn = 0
+  // totalReturn = futureVal - remainingDebt - cgt - equityNeeded + totalRentalIncome
+  // Approximate via bisection
+  let breakEvenAppr = null;
+  {
+    const f = (a) => {
+      const fv = secVal * Math.pow(1 + a, years);
+      const g = fv - costBase;
+      const c2 = g > 0 ? g * 0.22 : 0;
+      const np = fv - remainingDebt - c2;
+      return np - equityNeeded + totalRentalIncome;
+    };
+    let lo = -0.10, hi = 0.20;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) > 0) hi = mid; else lo = mid;
+    }
+    breakEvenAppr = (lo + hi) / 2;
+  }
+
+  // Brazil capital
+  const brlGross = brlAmount * 1000;
+  const brlAfterCosts = brlGross * (1 - iof - spread);
+  const nokReceived = fxRate ? brlAfterCosts * fxRate : 0;
+  const nokReceivedMnok = nokReceived / 1_000_000;
+  const totalCostBrl = brlGross - brlAfterCosts;
+
+  const debtOk = totalDebt <= debtLimit;
+  const ltvWarning = osloMode && ltv > 0.60;
+
+  return {
+    primVal, primDebt, income, otherAssets, secVal, ltv, rate, loanTerm, rent, opex, ownUse, years, appreciation,
+    secDebt, downPayment, stamp, equityNeeded, totalDebt, debtLimit, debtRoom,
+    primBaseLow, primBaseHigh, primBase, secBase, otherBase, otherFactor,
+    grossWealth, netWealth, taxableWealth, wealthTax, wealthTaxNoSec, wealthTaxDelta,
+    rentWeeks, rentFraction, grossRent, annualInterest, deductibleOpex,
+    taxableRental: Math.max(0, taxableProfitOrLossY1), taxableProfitOrLossY1, rentalTax: rentalTaxY1,
+    netCashflow, annualPrincipal, cashflowAfterPrincipal, grossYield, netYield,
+    monthlyPayment, schedule: amort.schedule, totalInterestPaid, totalRentalTax,
+    futureVal, costBase, gain, cgt, remainingDebt, netProceeds, totalRentalIncome, totalReturn, annualizedReturn,
+    debtOk, ltvWarning, breakEvenAppr,
+    brlGross, brlAfterCosts, nokReceived, nokReceivedMnok, totalCostBrl, iof, spread,
+    THRESHOLD_COUPLE
+  };
+}
+
+function buildVerdict(c) {
+  const items = [];
+  let level = 'good';
+  const escalate = (l) => {
+    if (l === 'bad') level = 'bad';
+    else if (l === 'warn' && level === 'good') level = 'warn';
+  };
+
+  if (!c.debtOk) {
+    escalate('bad');
+    items.push({ lv: 'bad', html: t('vd_debt_no').replace('{d}', fmt(c.totalDebt)).replace('{l}', fmt(c.debtLimit)) });
+  } else if (c.totalDebt / c.debtLimit > 0.92) {
+    escalate('warn');
+    items.push({ lv: 'warn', html: t('vd_debt_tight').replace('{d}', fmt(c.totalDebt)).replace('{l}', fmt(c.debtLimit)) });
+  } else {
+    items.push({ lv: 'good', html: t('vd_debt_ok').replace('{r}', fmt(c.debtRoom - c.secDebt)) });
+  }
+
+  if (c.ltvWarning) {
+    escalate('warn');
+    items.push({ lv: 'warn', html: t('vd_oslo') });
+  }
+
+  const monthlyCf = c.netCashflow / 12;
+  if (monthlyCf > 0.003) {
+    items.push({ lv: 'good', html: t('vd_cf_positive').replace('{cf}', fmt(monthlyCf)).replace('{y}', pct(c.netYield)) });
+  } else if (Math.abs(monthlyCf) <= 0.003) {
+    items.push({ lv: 'warn', html: t('vd_cf_neutral').replace('{cf}', fmtSign(monthlyCf)) });
+  } else {
+    escalate('warn');
+    items.push({ lv: 'warn', html: t('vd_cf_negative').replace('{cf}', fmtSign(monthlyCf)).replace('{ann}', fmt(Math.abs(c.netCashflow))) });
+  }
+
+  if (c.wealthTaxDelta < 0.005) {
+    items.push({ lv: 'good', html: t('vd_wealth_zero') });
+  } else {
+    items.push({ lv: 'warn', html: t('vd_wealth_some').replace('{wt}', fmt(c.wealthTaxDelta)) });
+  }
+
+  if (c.totalReturn < 0) {
+    escalate('bad');
+    items.push({ lv: 'bad', html: t('vd_return_neg').replace('{r}', fmt(c.totalReturn)).replace('{y}', c.years) });
+  } else if (c.annualizedReturn < 4) {
+    escalate('warn');
+    items.push({ lv: 'warn', html: t('vd_return_low').replace('{a}', pct(c.annualizedReturn)) });
+  } else {
+    items.push({ lv: 'good', html: t('vd_return_ok').replace('{a}', pct(c.annualizedReturn)).replace('{r}', fmt(c.totalReturn)).replace('{y}', c.years).replace('{e}', fmt(c.equityNeeded)) });
+  }
+
+  items.push({ lv: 'good', html: t('vd_breakeven').replace('{b}', pct(c.breakEvenAppr * 100)) });
+
+  return { level, items };
+}
+
+function update() {
+  const c = compute();
+
+  // Slider value displays
+  const setVal = (id, txt) => { const el = document.getElementById(id + '-out'); if (el) el.textContent = txt; };
+  setVal('primVal', nFmt(c.primVal, 1) + ' MNOK');
+  setVal('primDebt', nFmt(c.primDebt, 1) + ' MNOK');
+  setVal('income', nFmt(c.income, 1) + ' MNOK');
+  setVal('otherAssets', nFmt(c.otherAssets, 1) + ' MNOK');
+  setVal('secVal', nFmt(c.secVal, 1) + ' MNOK');
+  setVal('ltv', Math.round(c.ltv * 100) + '%');
+  setVal('rate', nFmt(c.rate * 100, 1) + '%');
+  setVal('loanTerm', c.loanTerm + ' ' + (c.loanTerm === 1 ? t('year_unit') : t('years_unit')));
+  setVal('rent', Math.round(c.rent * 1000) + ' KNOK');
+  setVal('opex', Math.round(c.opex * 1000) + ' KNOK');
+  setVal('ownUse', c.ownUse + ' ' + (c.ownUse === 1 ? t('week') : t('weeks')));
+  setVal('years', c.years + ' ' + (c.years === 1 ? t('year_unit') : t('years_unit')));
+  setVal('appreciation', nFmt(c.appreciation * 100, 1) + '%');
+  setVal('brlAmount', (+document.getElementById('brlAmount').value).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US') + 'k BRL');
+  setVal('iof', nFmt(c.iof * 100, 2) + '%');
+  setVal('spread', nFmt(c.spread * 100, 1) + '%');
+
+  // Oslo warning
+  const osloNote = document.getElementById('oslo-note');
+  if (c.ltvWarning) { osloNote.style.display = 'block'; osloNote.innerHTML = t('osloNote'); }
+  else osloNote.style.display = 'none';
+
+  // Verdict panel
+  const vd = buildVerdict(c);
+  const verdictEl = document.getElementById('verdict');
+  verdictEl.classList.remove('good', 'warn', 'bad');
+  verdictEl.classList.add(vd.level);
+  document.getElementById('verdict-light').textContent = vd.level === 'good' ? '✓' : vd.level === 'warn' ? '!' : '✗';
+  document.getElementById('verdict-headline').textContent =
+    vd.level === 'good' ? t('vd_good_head') : vd.level === 'warn' ? t('vd_warn_head') : t('vd_bad_head');
+  document.getElementById('verdict-sub').textContent = t('vd_sub_year').replace('{y}', c.years);
+  document.getElementById('verdict-list').innerHTML =
+    vd.items.map(it => `<li class="${it.lv}">${it.html}</li>`).join('');
+
+  // Metrics
+  document.getElementById('summary-metrics').innerHTML = `
+    <div class="metric ${c.debtOk ? 'good' : 'bad'}">
+      <div class="metric-label">${t('m_metric_debt')}</div>
+      <div class="metric-val">${fmt(c.totalDebt)}</div>
+      <div class="metric-sub">${t('m_limit')}: ${fmt(c.debtLimit)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">${t('m_metric_equity')}</div>
+      <div class="metric-val">${fmt(c.equityNeeded)}</div>
+      <div class="metric-sub">${propType === 'selveier' ? t('m_dokavg') + ' ' + fmt(c.stamp) : t('m_no_dokavg')}</div>
+    </div>
+    <div class="metric ${c.netCashflow >= 0 ? 'good' : 'warn'}">
+      <div class="metric-label">${t('m_metric_cf')}</div>
+      <div class="metric-val">${fmtSign(c.netCashflow / 12)}</div>
+      <div class="metric-sub">${t('m_yield')} ${pct(c.netYield)}</div>
+    </div>
+    <div class="metric ${c.wealthTaxDelta < 0.005 ? 'good' : 'warn'}">
+      <div class="metric-label">${t('m_metric_wealth')}</div>
+      <div class="metric-val">${c.wealthTaxDelta < 0.005 ? t('zero') : fmt(c.wealthTaxDelta)}</div>
+      <div class="metric-sub">Δ ${t('m_metric_wealth').toLowerCase()}</div>
+    </div>
+    <div class="metric ${c.totalReturn >= 0 ? 'good' : 'bad'}">
+      <div class="metric-label">${t('m_metric_gain')} ${c.years}${lang === 'pt' ? 'a' : 'y'}</div>
+      <div class="metric-val">${fmtSign(c.totalReturn)}</div>
+      <div class="metric-sub">${t('m_annualized')}: ${pct(c.annualizedReturn)}</div>
+    </div>
+  `;
+
+  // Wealth breakdown
+  const wealthRows = [];
+  wealthRows.push(row(t('w_prim_low'), '+' + fmt(c.primBaseLow)));
+  if (c.primVal > 10) wealthRows.push(row(t('w_prim_high'), '+' + fmt(c.primBaseHigh)));
+  wealthRows.push(row(t('w_sec'), '+' + fmt(c.secBase)));
+  wealthRows.push(row(assetType === 'fund' ? t('w_other_fund') : t('w_other_cash'), '+' + fmt(c.otherBase)));
+  wealthRows.push(row(t('w_debt'), '−' + fmt(c.totalDebt)));
+  wealthRows.push('<div class="divider"></div>');
+  wealthRows.push(row(t('w_net'), fmt(c.netWealth), 'total'));
+  wealthRows.push(row(t('w_threshold'), fmt(c.THRESHOLD_COUPLE)));
+  wealthRows.push(row(t('w_taxable'), fmt(c.taxableWealth), c.taxableWealth === 0 ? 'pos' : 'neg'));
+  wealthRows.push(row(t('w_tax'), c.wealthTax === 0 ? t('zero') : fmt(c.wealthTax), c.wealthTax === 0 ? 'pos total' : 'neg total'));
+  wealthRows.push('<div class="divider"></div>');
+  wealthRows.push(row(t('w_delta_label'), c.wealthTaxDelta === 0 ? t('zero') : '+' + fmt(c.wealthTaxDelta), c.wealthTaxDelta === 0 ? 'pos total' : 'neg total'));
+  document.getElementById('wealth-breakdown').innerHTML = wealthRows.join('');
+
+  // Rental breakdown — using KNOK throughout where appropriate
+  document.getElementById('rental-breakdown').innerHTML = `
+    ${row(t('r_weeks'), Math.round(c.rentWeeks) + ' (' + Math.round(c.rentFraction * 100) + '%)')}
+    ${row(t('r_gross_m'), '+' + fmtK(c.grossRent / 12))}
+    ${row(t('r_gross_y'), '+' + fmtK(c.grossRent))}
+    ${row(t('r_interest'), '−' + fmtK(c.annualInterest))}
+    ${row(t('r_opex'), '−' + fmtK(c.opex))}
+    <div class="divider"></div>
+    ${row(t('r_taxable'), fmtK(c.taxableRental))}
+    ${row(t('r_tax'), '−' + fmtK(c.rentalTax))}
+    <div class="divider"></div>
+    ${row(t('r_net_y'), fmtSign(c.netCashflow), c.netCashflow >= 0 ? 'pos total' : 'neg total')}
+    ${row(t('r_net_m'), fmtSign(c.netCashflow / 12), c.netCashflow >= 0 ? 'pos' : 'neg')}
+    ${row(t('r_after'), fmtSign(c.cashflowAfterPrincipal), c.cashflowAfterPrincipal >= 0 ? 'pos' : 'neg')}
+    <div class="divider"></div>
+    ${row(t('r_grossY'), pct(c.grossYield))}
+    ${row(t('r_netY'), pct(c.netYield))}
+  `;
+
+  // Sale breakdown
+  document.getElementById('sale-breakdown').innerHTML = `
+    ${row(t('s_current'), fmt(c.secVal))}
+    ${row(t('s_appr'), pct(c.appreciation * 100))}
+    ${row(t('s_future') + ' ' + c.years + ' ' + t('years_unit'), fmt(c.futureVal))}
+    <div class="divider"></div>
+    ${row(t('s_cost') + (propType === 'selveier' ? ' (incl. dokumentavgift 2,5%)' : ' (' + t('opt_borettslag') + ')'), fmt(c.costBase))}
+    ${row(t('s_gain'), fmtSign(c.gain))}
+    ${row(t('s_cgt'), '−' + fmt(c.cgt))}
+    ${row(t('s_remaining'), '−' + fmt(c.remainingDebt))}
+    ${row(t('s_proceeds'), fmt(c.netProceeds), 'total')}
+    <div class="divider"></div>
+    ${row(t('s_rental_total') + ' (' + c.years + ' ' + t('years_unit') + ')', fmtSign(c.totalRentalIncome))}
+    ${row(t('s_total'), fmtSign(c.totalReturn), c.totalReturn >= 0 ? 'pos total' : 'neg total')}
+    ${row(t('s_ann'), pct(c.annualizedReturn))}
+  `;
+
+  // Brazil breakdown
+  document.getElementById('brazil-breakdown').innerHTML = `
+    ${row(t('br_sent'), c.brlGross.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US') + ' BRL')}
+    ${row(t('br_iof') + ' (' + pct(c.iof * 100, 2) + ')', '−' + (c.brlGross * c.iof).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 0 }) + ' BRL')}
+    ${row(t('br_spread') + ' (' + pct(c.spread * 100) + ')', '−' + (c.brlGross * c.spread).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 0 }) + ' BRL')}
+    ${row(t('br_lost'), '−' + c.totalCostBrl.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 0 }) + ' BRL', 'neg')}
+    <div class="divider"></div>
+    ${row(t('br_net_brl'), c.brlAfterCosts.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 0 }) + ' BRL')}
+    ${row(t('br_rate'), '1 BRL = ' + nFmt(fxRate ? fxRate * (1 - c.iof - c.spread) : 0, 4) + ' NOK')}
+    ${row(t('br_nok'), fmt(c.nokReceivedMnok), 'total')}
+    <div class="divider"></div>
+    ${row(t('br_needed'), fmt(c.equityNeeded))}
+    ${row(c.nokReceivedMnok >= c.equityNeeded ? t('br_ok') : t('br_short'),
+        c.nokReceivedMnok >= c.equityNeeded
+          ? '+' + fmt(c.nokReceivedMnok - c.equityNeeded)
+          : '−' + fmt(c.equityNeeded - c.nokReceivedMnok),
+        c.nokReceivedMnok >= c.equityNeeded ? 'pos total' : 'neg total')}
+  `;
+
+  if (document.getElementById('tab-chart').classList.contains('active')) renderChart();
+  if (document.getElementById('tab-scenarios').classList.contains('active')) renderScenarios();
+  if (document.getElementById('tab-cashflow').classList.contains('active')) renderCashflow();
+}
+
+function renderCashflow() {
+  const c = compute();
+  const rows = [];
+  // Year 0: purchase
+  rows.push(`<tr class="purchase">
+    <td>0</td><td>${t('cf_purchase')}</td>
+    <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+    <td class="v-neg">${fmtSign(-c.equityNeeded)}</td>
+    <td class="v-neg">${fmtSign(-c.equityNeeded)}</td>
+    <td class="v-neg">${fmtSign(-c.equityNeeded)}</td>
+    <td>${fmt(c.secDebt)}</td>
+  </tr>`);
+
+  let cumulative = -c.equityNeeded;
+  for (let y = 1; y <= c.years; y++) {
+    const yr = c.schedule[y - 1];
+    const profit = c.grossRent - yr.interestPaid - c.deductibleOpex;
+    const tax = profit * 0.22;          // negative if loss → credit
+    const isLast = (y === c.years);
+    let saleProceeds = 0;
+    if (isLast) saleProceeds = c.netProceeds;
+    const yearNet = c.grossRent - yr.interestPaid - yr.principalPaid - c.opex - tax - c.wealthTaxDelta + saleProceeds;
+    cumulative += yearNet;
+    rows.push(`<tr class="${isLast ? 'sale' : ''}">
+      <td>${y}</td><td>${isLast ? t('cf_sale') : t('cf_hold')}</td>
+      <td class="v-pos">${fmtSign(c.grossRent)}</td>
+      <td class="v-neg">${fmtSign(-yr.interestPaid)}</td>
+      <td class="v-neg">${fmtSign(-yr.principalPaid)}</td>
+      <td class="v-neg">${fmtSign(-c.opex)}</td>
+      <td class="${tax > 0 ? 'v-neg' : 'v-pos'}">${fmtSign(-tax)}</td>
+      <td class="${c.wealthTaxDelta > 0 ? 'v-neg' : 'v-pos'}">${fmtSign(-c.wealthTaxDelta)}</td>
+      <td class="${saleProceeds > 0 ? 'v-pos' : ''}">${isLast ? fmtSign(saleProceeds) : '—'}</td>
+      <td class="${yearNet >= 0 ? 'v-pos' : 'v-neg'}">${fmtSign(yearNet)}</td>
+      <td class="${cumulative >= 0 ? 'v-pos' : 'v-neg'}">${fmtSign(cumulative)}</td>
+      <td>${fmt(yr.balanceEnd)}</td>
+    </tr>`);
+  }
+  // Total row
+  rows.push(`<tr class="total">
+    <td colspan="9">${t('cf_total')}</td>
+    <td>${fmtSign(c.totalReturn)}</td>
+    <td>${fmtSign(cumulative)}</td>
+    <td>—</td>
+  </tr>`);
+
+  const head = `<thead><tr>
+    <th>${t('cf_col_year')}</th>
+    <th>${t('cf_col_event')}</th>
+    <th>${t('cf_col_rent')}</th>
+    <th>${t('cf_col_interest')}</th>
+    <th>${t('cf_col_principal')}</th>
+    <th>${t('cf_col_opex')}</th>
+    <th>${t('cf_col_tax')}</th>
+    <th>${t('cf_col_wt')}</th>
+    <th>${t('cf_col_capital')}</th>
+    <th>${t('cf_col_net')}</th>
+    <th>${t('cf_col_cum')}</th>
+    <th>${t('cf_col_balance')}</th>
+  </tr></thead>`;
+  document.getElementById('cashflow-table').innerHTML = head + '<tbody>' + rows.join('') + '</tbody>';
+
+  // Summary stats
+  const totalCredit = c.totalRentalTax < 0 ? -c.totalRentalTax : 0;
+  const totalTaxPaid = c.totalRentalTax > 0 ? c.totalRentalTax : 0;
+  document.getElementById('cashflow-summary').innerHTML = `
+    <div class="cf-summary-grid">
+      <div class="cf-stat">
+        <div class="cf-stat-lbl">${t('cf_stat_payment')}</div>
+        <div class="cf-stat-val">${fmt(c.monthlyPayment)}/${lang === 'pt' ? 'mês' : 'mo'}</div>
+      </div>
+      <div class="cf-stat">
+        <div class="cf-stat-lbl">${t('cf_stat_total_int')}</div>
+        <div class="cf-stat-val">${fmt(c.totalInterestPaid)}</div>
+      </div>
+      <div class="cf-stat">
+        <div class="cf-stat-lbl">${totalTaxPaid > 0 ? t('cf_stat_total_tax') : t('cf_stat_total_credit')}</div>
+        <div class="cf-stat-val" style="color: ${totalTaxPaid > 0 ? '#A32D2D' : '#0F6E56'}">
+          ${totalTaxPaid > 0 ? '−' + fmt(totalTaxPaid) : '+' + fmt(totalCredit)}
+        </div>
+      </div>
+      <div class="cf-stat">
+        <div class="cf-stat-lbl">${t('cf_stat_irr')}</div>
+        <div class="cf-stat-val" style="color: ${c.annualizedReturn >= 0 ? '#0F6E56' : '#A32D2D'}">${pct(c.annualizedReturn)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderChart() {
+  const c = compute();
+  const labels = [];
+  const valueData = [], debtData = [], cashData = [], equityData = [];
+  let cumCash = -c.equityNeeded;
+  for (let y = 0; y <= c.years; y++) {
+    labels.push(y);
+    const v = c.secVal * Math.pow(1 + c.appreciation, y);
+    const d = y === 0 ? c.secDebt : (c.schedule[y - 1] ? c.schedule[y - 1].balanceEnd : 0);
+    if (y > 0) {
+      const yr = c.schedule[y - 1];
+      const profit = c.grossRent - yr.interestPaid - c.deductibleOpex;
+      const tax = profit * 0.22;
+      const cf = c.grossRent - yr.interestPaid - c.opex - tax - c.wealthTaxDelta;
+      cumCash += cf;
+    }
+    valueData.push(+v.toFixed(3));
+    debtData.push(+d.toFixed(3));
+    cashData.push(+cumCash.toFixed(3));
+    equityData.push(+(v - d + cumCash).toFixed(3));
+  }
+  const datasets = [];
+  if (document.getElementById('ck-value').checked) datasets.push({ label: t('ck_value'), data: valueData, borderColor: '#534AB7', tension: 0.2, fill: false });
+  if (document.getElementById('ck-debt').checked) datasets.push({ label: t('ck_debt'), data: debtData, borderColor: '#A32D2D', tension: 0.2, fill: false });
+  if (document.getElementById('ck-cash').checked) datasets.push({ label: t('ck_cash'), data: cashData, borderColor: '#BA7517', tension: 0.2, fill: false });
+  if (document.getElementById('ck-equity').checked) datasets.push({ label: t('ck_equity'), data: equityData, borderColor: '#0F6E56', backgroundColor: 'rgba(15,110,86,0.15)', tension: 0.2, fill: true });
+  const ctx = document.getElementById('timeline-chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 12 } } },
+        tooltip: { callbacks: { label: (cx) => `${cx.dataset.label}: ${nFmt(cx.parsed.y, 2)} MNOK` } }
+      },
+      scales: {
+        x: { title: { display: true, text: t('ch_year') } },
+        y: { title: { display: true, text: t('ch_value') + ' (MNOK)' }, ticks: { callback: v => nFmt(v, 1) } }
+      }
+    }
+  });
+}
+
+function recomputeScenario(base, override) {
+  const rate = override.rate ?? base.rate;
+  const appr = override.appr ?? base.appreciation;
+  const vacExtra = override.vacWeeks ?? 0;
+  const apprDrop = override.dropAtSale ?? 0;
+  const rentWeeks = Math.max(0, 52 - base.ownUse - vacExtra);
+  const rentFraction = rentWeeks / 52;
+  const grossRent = base.rent * 12 * rentFraction;
+  const deductibleOpex = base.opex * rentFraction;
+  // Annuitetslån schedule for this scenario (rate may differ)
+  const am = buildAmortSchedule(base.secDebt, rate, base.loanTerm, base.years);
+  let totalRental = 0;
+  for (const yr of am.schedule) {
+    const profit = grossRent - yr.interestPaid - deductibleOpex;
+    const tax = profit * 0.22;
+    totalRental += grossRent - yr.interestPaid - base.opex - tax;
+  }
+  const remaining = am.schedule.length > 0 ? am.schedule[am.schedule.length - 1].balanceEnd : base.secDebt;
+  const yearOneCf = am.schedule[0]
+    ? grossRent - am.schedule[0].interestPaid - base.opex - (grossRent - am.schedule[0].interestPaid - deductibleOpex) * 0.22
+    : 0;
+  let futureVal = base.secVal * Math.pow(1 + appr, base.years);
+  futureVal *= (1 + apprDrop);
+  const gain = futureVal - base.costBase;
+  const cgt = gain > 0 ? gain * 0.22 : 0;
+  const np = futureVal - remaining - cgt;
+  const totalReturn = np - base.equityNeeded + totalRental;
+  const ann = base.equityNeeded > 0
+    ? (Math.pow(Math.max(0.001, base.equityNeeded + totalReturn) / base.equityNeeded, 1 / base.years) - 1) * 100 : 0;
+  return { netCf: yearOneCf, totalReturn, ann };
+}
+
+function renderScenarios() {
+  const base = compute();
+  const scenarios = [
+    { id: 'base', label: t('sc_base'), opts: {} },
+    { id: 'rates', label: t('sc_rates'), opts: { rate: base.rate + 0.02 } },
+    { id: 'flat', label: t('sc_flat'), opts: { appr: 0 } },
+    { id: 'down', label: t('sc_down'), opts: { dropAtSale: -0.20 } },
+    { id: 'vacancy', label: t('sc_vacancy'), opts: { vacWeeks: 12 } },
+    { id: 'double', label: t('sc_double'), opts: { rate: base.rate + 0.01, dropAtSale: -0.10 } },
+    { id: 'best', label: t('sc_best'), opts: { rate: Math.max(0.02, base.rate - 0.01), appr: base.appreciation + 0.02 } }
+  ];
+  const rows = scenarios.map(s => {
+    const r = recomputeScenario(base, s.opts);
+    return { ...s, ...r };
+  });
+
+  const head = `
+    <thead><tr>
+      <th>${t('sc_col_label')}</th>
+      <th>${t('sc_col_cf')}</th>
+      <th>${t('sc_col_total')}</th>
+      <th>${t('sc_col_ann')}</th>
+    </tr></thead>
+  `;
+  const body = '<tbody>' + rows.map(r => `
+    <tr class="${r.id === 'base' ? 'base' : ''}">
+      <td>${r.label}</td>
+      <td class="${r.netCf >= 0 ? 'v-pos' : 'v-neg'}">${fmtSign(r.netCf / 12)}</td>
+      <td class="${r.totalReturn >= 0 ? 'v-pos' : 'v-neg'}">${fmtSign(r.totalReturn)}</td>
+      <td class="${r.ann >= 0 ? 'v-pos' : 'v-neg'}">${pct(r.ann)}</td>
+    </tr>
+  `).join('') + '</tbody>';
+  document.getElementById('scen-table').innerHTML = head + body;
+
+  document.getElementById('breakeven-note').innerHTML =
+    t('vd_breakeven').replace('{b}', pct(base.breakEvenAppr * 100));
+}
+
+document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', update));
+document.querySelectorAll('#chart-toggles input').forEach(el => el.addEventListener('change', renderChart));
+
+setLang('pt');
+fetchFx();
+</script>
+</body>
+</html>

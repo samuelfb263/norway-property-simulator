@@ -1,0 +1,12 @@
+{
+  "name": "norway-property-simulator",
+  "version": "1.0.0",
+  "description": "Financial simulator for Brazilian investors evaluating property investment in Norway",
+  "scripts": {
+    "dev": "npx serve . -p 8765",
+    "test": "node --test tests/compute.test.js"
+  },
+  "keywords": ["norway", "property", "investment", "simulator", "wealth-tax"],
+  "license": "MIT",
+  "private": true
+}

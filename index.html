@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Norway Property Investment Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="sim-wrap">
+  <div class="topbar">
+    <h1 data-i18n="title">Simulador de Investimento Imobiliário — Noruega</h1>
+    <div class="topbar-actions">
+      <div class="lang-toggle">
+        <button id="lang-pt" class="active">PT-BR</button>
+        <button id="lang-en">EN</button>
+      </div>
+      <button class="btn" data-i18n="print">Imprimir / PDF</button>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="verdict-head">
+      <div class="verdict-light" id="verdict-light">·</div>
+      <div>
+        <div class="verdict-headline" id="verdict-headline"></div>
+        <div class="verdict-sub" id="verdict-sub"></div>
+      </div>
+    </div>
+    <ul class="verdict-list" id="verdict-list"></ul>
+  </div>
+
+  <div class="metrics" id="summary-metrics"></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="inputs" data-i18n="tab_inputs">Parâmetros</button>
+    <button class="tab" data-tab="rental" data-i18n="tab_rental">Aluguel</button>
+    <button class="tab" data-tab="wealth" data-i18n="tab_wealth">Wealth tax</button>
+    <button class="tab" data-tab="sale" data-i18n="tab_sale">Venda futura</button>
+    <button class="tab" data-tab="cashflow" data-i18n="tab_cashflow">Fluxo de caixa</button>
+    <button class="tab" data-tab="chart" data-i18n="tab_chart">Linha do tempo</button>
+    <button class="tab" data-tab="scenarios" data-i18n="tab_scenarios">Cenários</button>
+    <button class="tab" data-tab="brazil" data-i18n="tab_brazil">Capital BR</button>
+    <button class="tab" data-tab="notes" data-i18n="tab_notes">Notas fiscais</button>
+  </div>
+
+  <div id="tab-inputs" class="tab-content active">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_inputs">Ajuste os parâmetros abaixo. O veredito e as métricas no topo recalculam automaticamente.</div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_current">Sua situação atual</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_primVal">primærbolig (casa principal) — valor (MNOK)</span>
+          <input type="range" id="primVal" min="3" max="15" step="0.1" value="6.4" aria-label="Primary home value">
+          <span class="slider-val" id="primVal-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_primDebt">primærbolig — dívida atual (MNOK)</span>
+          <input type="range" id="primDebt" min="0" max="12" step="0.1" value="5.3" aria-label="Primary home debt">
+          <span class="slider-val" id="primDebt-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_income">Renda bruta anual combinada (MNOK)</span>
+          <input type="range" id="income" min="0.5" max="5" step="0.1" value="2.1" aria-label="Annual income">
+          <span class="slider-val" id="income-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_otherAssets">Outros ativos — poupança + fundos (MNOK)</span>
+          <input type="range" id="otherAssets" min="0" max="5" step="0.1" value="0.8" aria-label="Other assets">
+          <span class="slider-val" id="otherAssets-out"></span>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_assetType">Tipo dos outros ativos</span>
+          <div class="pill-toggle">
+            <button id="assetType-cash" class="active" data-i18n="opt_cash">Dinheiro / banco (100%)</button>
+            <button id="assetType-fund" data-i18n="opt_fund">aksjefond (fundos, 80%)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_property">O imóvel-alvo (sekundærbolig)</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_secVal">Preço do imóvel (MNOK)</span>
+          <input type="range" id="secVal" min="1" max="12" step="0.1" value="5.0" aria-label="Property price">
+          <span class="slider-val" id="secVal-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_ltv">LTV — financiamento (%)</span>
+          <input type="range" id="ltv" min="0" max="90" step="5" value="80" aria-label="Loan to value">
+          <span class="slider-val" id="ltv-out"></span>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_propType">Tipo de propriedade</span>
+          <div class="pill-toggle">
+            <button id="propType-selveier" class="active" data-i18n="opt_selveier">selveier (propriedade plena)</button>
+            <button id="propType-borettslag" data-i18n="opt_borettslag">borettslag (cooperativa)</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_location">Localização</span>
+          <div class="pill-toggle">
+            <button id="loc-other" class="active" data-i18n="opt_locOther">Bærum / fora de Oslo</button>
+            <button id="loc-oslo" data-i18n="opt_locOslo">Oslo</button>
+          </div>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_rate">Taxa de juros do empréstimo (%)</span>
+          <input type="range" id="rate" min="2" max="8" step="0.1" value="5.0" aria-label="Interest rate">
+          <span class="slider-val" id="rate-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_loanTerm">Prazo do financiamento — Annuitetslån (anos)</span>
+          <input type="range" id="loanTerm" min="10" max="30" step="1" value="25" aria-label="Loan term">
+          <span class="slider-val" id="loanTerm-out"></span>
+        </div>
+        <div class="note" id="oslo-note" style="display:none"></div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_rental">Suposições de aluguel e custos</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_rent">Aluguel mensal estimado (KNOK)</span>
+          <input type="range" id="rent" min="5" max="40" step="1" value="18" aria-label="Monthly rent">
+          <span class="slider-val" id="rent-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_opex">Despesas operacionais / ano (KNOK)</span>
+          <input type="range" id="opex" min="0" max="120" step="1" value="60" aria-label="Operating expenses">
+          <span class="slider-val" id="opex-out"></span>
+        </div>
+        <div class="note" data-i18n="opex_note"></div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_ownUse">Semanas de uso próprio / ano</span>
+          <input type="range" id="ownUse" min="0" max="12" step="1" value="0" aria-label="Own use weeks">
+          <span class="slider-val" id="ownUse-out"></span>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_horizon">Horizonte e mercado</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_years">Anos até a venda</span>
+          <input type="range" id="years" min="1" max="25" step="1" value="10" aria-label="Years until sale">
+          <span class="slider-val" id="years-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_appreciation">Valorização anual estimada (%)</span>
+          <input type="range" id="appreciation" min="-2" max="8" step="0.1" value="3.0" aria-label="Annual appreciation">
+          <span class="slider-val" id="appreciation-out"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-rental" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_rental">Quanto o imóvel rende (ou custa) por ano. Se o líquido for negativo, você tira do bolso todo mês.</div>
+      <div class="section-title" data-i18n="sec_rental">Fluxo de caixa anual do aluguel</div>
+      <div class="breakdown" id="rental-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-wealth" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_wealth">A Noruega tributa patrimônio líquido acima de 3,8 MNOK (casal). Com 5,3M de dívida na casa principal seu patrimônio líquido fica baixo — provavelmente paga zero.</div>
+      <div class="section-title" data-i18n="sec_wealth_calc">formuesskatt — cálculo 2026</div>
+      <div class="breakdown" id="wealth-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-sale" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_sale">Resultado se você vender no final do horizonte. Inclui CGT de 22% sobre o ganho (sem isenção em sekundærbolig) e quitação do saldo da dívida.</div>
+      <div class="section-title" data-i18n="sec_sale">Projeção de venda</div>
+      <div class="breakdown" id="sale-breakdown"></div>
+    </div>
+  </div>
+
+  <div id="tab-cashflow" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_cashflow">Fluxo de caixa real ano a ano com Annuitetslån (parcela fixa, juros caem com o tempo). Linha 0 = compra; última linha inclui a venda. Lucro/prejuízo do aluguel é tributado a 22% — quando dá prejuízo, vira crédito fiscal (rentefradrag) que reduz o IR sobre outras rendas.</div>
+      <div class="section-title" data-i18n="sec_cashflow">Fluxo de caixa detalhado</div>
+      <div id="cashflow-summary" style="font-size: 13px; margin-bottom: 0.75rem;"></div>
+      <div style="overflow-x: auto;">
+        <table class="scen-table cashflow-table" id="cashflow-table"></table>
+      </div>
+      <div class="note" data-i18n="cashflow_note"></div>
+    </div>
+  </div>
+
+  <div id="tab-chart" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_chart">Como cada componente evolui ano a ano. O patrimônio líquido (verde) é o que importa: valor − dívida + caixa acumulado.</div>
+      <div class="section-title" data-i18n="sec_timeline">Linha do tempo</div>
+      <div class="chart-toggles" id="chart-toggles">
+        <label><input type="checkbox" id="ck-value" checked> <span data-i18n="ck_value">Valor do imóvel</span></label>
+        <label><input type="checkbox" id="ck-debt" checked> <span data-i18n="ck_debt">Dívida remanescente</span></label>
+        <label><input type="checkbox" id="ck-cash" checked> <span data-i18n="ck_cash">Fluxo de caixa acumulado</span></label>
+        <label><input type="checkbox" id="ck-equity" checked> <span data-i18n="ck_equity">Patrimônio líquido</span></label>
+      </div>
+      <div class="chart-wrap"><canvas id="timeline-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="tab-scenarios" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_scenarios">Teste de stress: e se as suposições derem errado? Compara o retorno em 6 cenários alternativos.</div>
+      <div class="section-title" data-i18n="sec_scenarios">Análise de sensibilidade</div>
+      <div style="overflow-x: auto;">
+        <table class="scen-table" id="scen-table"></table>
+      </div>
+      <div class="note" id="breakeven-note"></div>
+    </div>
+  </div>
+
+  <div id="tab-brazil" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_brazil">Para trazer o capital de entrada do Brasil, você perde IOF (1,1%) + spread cambial da remessa (~1,5–2%). Modele aqui.</div>
+      <div class="section-title" data-i18n="sec_brazil">Origem do capital — Brasil → Noruega</div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_brl">Valor enviado do Brasil (BRL, milhares)</span>
+        <input type="range" id="brlAmount" min="100" max="3000" step="50" value="1500" aria-label="BRL amount">
+        <span class="slider-val" id="brlAmount-out"></span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_iof">IOF sobre câmbio (%)</span>
+        <input type="range" id="iof" min="0" max="3.5" step="0.05" value="1.1" aria-label="IOF rate">
+        <span class="slider-val" id="iof-out"></span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" data-i18n="lbl_spread">Spread da remessa — Remessa Online / Wise / banco (%)</span>
+        <input type="range" id="spread" min="0" max="5" step="0.1" value="1.8" aria-label="Remittance spread">
+        <span class="slider-val" id="spread-out"></span>
+      </div>
+      <div class="fx-box" id="fx-box">
+        <span data-i18n="fx_loading">Carregando cotação BRL/NOK…</span>
+      </div>
+      <div class="breakdown" id="brazil-breakdown" style="margin-top: 1rem;"></div>
+      <div class="note" data-i18n="brazil_note"></div>
+    </div>
+  </div>
+
+  <div id="tab-notes" class="tab-content">
+    <div class="section">
+      <div class="section-intro" data-i18n="intro_notes">Cada premissa fiscal usada no simulador, verificada nas fontes oficiais (Skatteetaten, Regnskap Norge, Finanstilsynet).</div>
+      <div class="section-title" data-i18n="sec_verified">Premissas fiscais — Noruega 2026</div>
+      <ul class="verified-list" id="verified-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
