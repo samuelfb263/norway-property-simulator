@@ -16,11 +16,35 @@
         <button id="lang-pt" class="active">PT-BR</button>
         <button id="lang-en">EN</button>
       </div>
+      <button class="btn btn-ghost" id="btn-tour" data-i18n="tour_take">Tour guiado</button>
       <button class="btn" data-i18n="print">Imprimir / PDF</button>
     </div>
   </div>
 
-  <div class="verdict" id="verdict">
+  <div class="scenario-bar" data-tour-step="7">
+    <label class="sb-item">
+      <span data-i18n="btn_preset">Preset</span>
+      <select id="preset-select">
+        <option value="" data-i18n="preset_blank">— escolha um preset —</option>
+        <option value="oslo_studio" data-i18n="preset_oslo_studio">Studio em Oslo (residente, casal)</option>
+        <option value="bergen_2br" data-i18n="preset_bergen_2br">2 quartos em Bergen (residente)</option>
+        <option value="cabin_trysil" data-i18n="preset_cabin_trysil">Hytte em Trysil (uso próprio 8 sem.)</option>
+        <option value="nonresident" data-i18n="preset_nonresident">Investidor não-residente do BR</option>
+      </select>
+    </label>
+    <label class="sb-item">
+      <span data-i18n="btn_load_scenario">Carregar</span>
+      <select id="scenario-select"><option value=""></option></select>
+    </label>
+    <button class="btn btn-ghost" id="btn-save" data-i18n="btn_save_scenario">Salvar cenário</button>
+    <button class="btn btn-ghost" id="btn-delete" data-i18n="btn_delete_scenario">Excluir</button>
+    <button class="btn btn-ghost" id="btn-copy-link" data-i18n="btn_copy_link">Copiar link</button>
+    <span id="link-copied-msg" class="sb-msg" style="display:none" data-i18n="link_copied">Link copiado!</span>
+  </div>
+
+  <div id="validation-banner" class="validation-banner" style="display:none"></div>
+
+  <div class="verdict" id="verdict" data-tour-step="5">
     <div class="verdict-head">
       <div class="verdict-light" id="verdict-light">·</div>
       <div>
@@ -40,7 +64,7 @@
     <button class="tab" data-tab="sale" data-i18n="tab_sale">Venda futura</button>
     <button class="tab" data-tab="cashflow" data-i18n="tab_cashflow">Fluxo de caixa</button>
     <button class="tab" data-tab="chart" data-i18n="tab_chart">Linha do tempo</button>
-    <button class="tab" data-tab="scenarios" data-i18n="tab_scenarios">Cenários</button>
+    <button class="tab" data-tab="scenarios" data-i18n="tab_scenarios" data-tour-step="6">Cenários</button>
     <button class="tab" data-tab="brazil" data-i18n="tab_brazil">Capital BR</button>
     <button class="tab" data-tab="notes" data-i18n="tab_notes">Notas fiscais</button>
   </div>
@@ -49,7 +73,25 @@
     <div class="section">
       <div class="section-intro" data-i18n="intro_inputs">Ajuste os parâmetros abaixo. O veredito e as métricas no topo recalculam automaticamente.</div>
 
-      <div class="subgroup">
+      <div class="subgroup" data-tour-step="1">
+        <div class="subgroup-title" data-i18n="grp_taxprofile">Perfil fiscal</div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_residency">Residência fiscal</span>
+          <div class="pill-toggle">
+            <button id="res-resident" class="active" data-i18n="opt_resident">Residente na Noruega</button>
+            <button id="res-nonResident" data-i18n="opt_nonResident">Não-residente (mora no Brasil)</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span class="slider-label" data-i18n="lbl_civilStatus">Status civil</span>
+          <div class="pill-toggle">
+            <button id="civ-couple" class="active" data-i18n="opt_couple">Casal (bunnfradrag 3,8M)</button>
+            <button id="civ-single" data-i18n="opt_single">Solteiro (bunnfradrag 1,9M)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup" data-tour-step="2">
         <div class="subgroup-title" data-i18n="grp_current">Sua situação atual</div>
         <div class="slider-row">
           <span class="slider-label" data-i18n="lbl_primVal">primærbolig (casa principal) — valor (MNOK)</span>
@@ -80,7 +122,7 @@
         </div>
       </div>
 
-      <div class="subgroup">
+      <div class="subgroup" data-tour-step="3">
         <div class="subgroup-title" data-i18n="grp_property">O imóvel-alvo (sekundærbolig)</div>
         <div class="slider-row">
           <span class="slider-label" data-i18n="lbl_secVal">Preço do imóvel (MNOK)</span>
@@ -120,6 +162,20 @@
       </div>
 
       <div class="subgroup">
+        <div class="subgroup-title" data-i18n="grp_costs">Custos de transação</div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_agentFee">Comissão da imobiliária na venda (%)</span>
+          <input type="range" id="agentFeeRate" min="0" max="4" step="0.1" value="2.0" aria-label="Agent fee">
+          <span class="slider-val" id="agentFeeRate-out"></span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-i18n="lbl_acquisitionCost">Custos de aquisição extras (advogado, vistoria) (%)</span>
+          <input type="range" id="acquisitionCostRate" min="0" max="3" step="0.1" value="1.5" aria-label="Acquisition costs">
+          <span class="slider-val" id="acquisitionCostRate-out"></span>
+        </div>
+      </div>
+
+      <div class="subgroup" data-tour-step="4">
         <div class="subgroup-title" data-i18n="grp_rental">Suposições de aluguel e custos</div>
         <div class="slider-row">
           <span class="slider-label" data-i18n="lbl_rent">Aluguel mensal estimado (KNOK)</span>

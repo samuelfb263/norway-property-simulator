@@ -3,7 +3,9 @@ import {
   WEALTH_TAX_RATE_TIER1,
   WEALTH_TAX_RATE_TIER2,
   WEALTH_BUNNFRADRAG_COUPLE,
+  WEALTH_BUNNFRADRAG_SINGLE,
   WEALTH_TIER2_COUPLE,
+  WEALTH_TIER2_SINGLE,
   PRIM_VALUATION_THRESHOLD,
   PRIM_VALUATION_RATE_LOW,
   PRIM_VALUATION_RATE_HIGH,
@@ -15,17 +17,14 @@ import {
   WEEKS_PER_YEAR,
   DEBT_RATIO_WARN_THRESHOLD,
   MONTHLY_CF_NEUTRAL_THRESHOLD,
-  LOW_RETURN_THRESHOLD
+  LOW_RETURN_THRESHOLD,
+  AGENT_FEE_RATE,
+  ACQUISITION_COST_RATE
 } from './config.js';
 import { t, fmt, fmtSign, pct } from './i18n.js';
 
 /**
  * Build annuity loan amortization schedule.
- * @param {number} principal - Loan amount in MNOK
- * @param {number} annualRate - Annual interest rate (decimal, e.g. 0.05)
- * @param {number} paymentYears - Total loan term in years
- * @param {number} horizonYears - Years to compute (may be less than term)
- * @returns {{ schedule: Array, monthlyPayment: number }}
  */
 export function buildAmortSchedule(principal, annualRate, paymentYears, horizonYears) {
   if (!Number.isFinite(principal) || principal <= 0 || paymentYears <= 0) {
@@ -53,29 +52,56 @@ export function buildAmortSchedule(principal, annualRate, paymentYears, horizonY
   return { schedule, monthlyPayment };
 }
 
-function computeWealthTax(taxableWealth) {
+function bunnfradragFor(civilStatus) {
+  return civilStatus === 'single' ? WEALTH_BUNNFRADRAG_SINGLE : WEALTH_BUNNFRADRAG_COUPLE;
+}
+function tier2CapFor(civilStatus) {
+  return civilStatus === 'single' ? WEALTH_TIER2_SINGLE : WEALTH_TIER2_COUPLE;
+}
+
+function computeWealthTax(taxableWealth, civilStatus) {
   if (taxableWealth <= 0) return 0;
-  const tier1Cap = WEALTH_TIER2_COUPLE - WEALTH_BUNNFRADRAG_COUPLE;
+  const tier1Cap = tier2CapFor(civilStatus) - bunnfradragFor(civilStatus);
   if (taxableWealth <= tier1Cap) return taxableWealth * WEALTH_TAX_RATE_TIER1;
   return tier1Cap * WEALTH_TAX_RATE_TIER1 + (taxableWealth - tier1Cap) * WEALTH_TAX_RATE_TIER2;
 }
 
 /**
+ * Validate inputs and return warnings/errors (no throw).
+ */
+export function validateInputs(p) {
+  const errors = [];
+  const warnings = [];
+  if (p.primDebt > p.primVal) errors.push('val_primDebt_exceeds');
+  if (p.ltv > 0.85) warnings.push('val_ltv_high');
+  if (p.rate < 0.02 || p.rate > 0.12) warnings.push('val_rate_unusual');
+  if (p.secVal > 0 && (p.rent * 12) / p.secVal > 0.10) warnings.push('val_yield_high');
+  if (p.years > p.loanTerm) warnings.push('val_years_gt_term');
+  if (p.osloMode && p.ltv > OSLO_MAX_LTV) warnings.push('val_oslo_ltv');
+  return { errors, warnings };
+}
+
+/**
  * Core financial computation. Pure function — no DOM access.
- * @param {object} params - All input values as plain numbers
- * @returns {object} Full computation result
  */
 export function compute(params) {
   const {
     primVal, primDebt, income, otherAssets, secVal, ltv, rate, loanTerm,
     rent, opex, ownUse, years, appreciation, propType, assetType, osloMode,
-    fxRate, brlAmount, iof, spread
+    fxRate, brlAmount, iof, spread,
+    residency = 'resident',
+    civilStatus = 'couple',
+    agentFeeRate = AGENT_FEE_RATE,
+    acquisitionCostRate = ACQUISITION_COST_RATE
   } = params;
+
+  const isNonResident = residency === 'nonResident';
 
   const secDebt = secVal * ltv;
   const downPayment = secVal * (1 - ltv);
   const stamp = propType === 'selveier' ? secVal * DOKUMENTAVGIFT_RATE : 0;
-  const equityNeeded = downPayment + stamp;
+  const acquisitionCosts = secVal * acquisitionCostRate;
+  const equityNeeded = downPayment + stamp + acquisitionCosts;
   const totalDebt = primDebt + secDebt;
   const debtLimit = income * DEBT_TO_INCOME_MULTIPLIER;
   const debtRoom = debtLimit - primDebt;
@@ -86,15 +112,33 @@ export function compute(params) {
   const secBase = secVal * SEK_VALUATION_FACTOR;
   const otherFactor = assetType === 'fund' ? AKSJEFOND_RABATT_FACTOR : 1.0;
   const otherBase = otherAssets * otherFactor;
-  const grossWealth = primBase + secBase + otherBase;
-  const netWealth = grossWealth - totalDebt;
-  const taxableWealth = Math.max(0, netWealth - WEALTH_BUNNFRADRAG_COUPLE);
-  const wealthTax = computeWealthTax(taxableWealth);
 
-  const grossWealthNoSec = primBase + otherBase;
-  const netWealthNoSec = grossWealthNoSec - primDebt;
-  const taxableNoSec = Math.max(0, netWealthNoSec - WEALTH_BUNNFRADRAG_COUPLE);
-  const wealthTaxNoSec = computeWealthTax(taxableNoSec);
+  const bunnfradrag = bunnfradragFor(civilStatus);
+
+  let grossWealth, netWealth, taxableWealth, wealthTax;
+  let grossWealthNoSec, netWealthNoSec, taxableNoSec, wealthTaxNoSec;
+
+  if (isNonResident) {
+    // Non-residents are only taxed on Norway-situated real estate net of NO debt.
+    // Primary home + other (global) assets are excluded from NO wealth base.
+    grossWealth = secBase;
+    netWealth = grossWealth - secDebt;
+    taxableWealth = Math.max(0, netWealth - bunnfradrag);
+    wealthTax = computeWealthTax(taxableWealth, civilStatus);
+    grossWealthNoSec = 0;
+    netWealthNoSec = 0;
+    taxableNoSec = 0;
+    wealthTaxNoSec = 0;
+  } else {
+    grossWealth = primBase + secBase + otherBase;
+    netWealth = grossWealth - totalDebt;
+    taxableWealth = Math.max(0, netWealth - bunnfradrag);
+    wealthTax = computeWealthTax(taxableWealth, civilStatus);
+    grossWealthNoSec = primBase + otherBase;
+    netWealthNoSec = grossWealthNoSec - primDebt;
+    taxableNoSec = Math.max(0, netWealthNoSec - bunnfradrag);
+    wealthTaxNoSec = computeWealthTax(taxableNoSec, civilStatus);
+  }
   const wealthTaxDelta = wealthTax - wealthTaxNoSec;
 
   const rentWeeks = WEEKS_PER_YEAR - ownUse;
@@ -129,10 +173,11 @@ export function compute(params) {
   }
 
   const futureVal = secVal * Math.pow(1 + appreciation, years);
-  const costBase = secVal + stamp;
+  const costBase = secVal + stamp + acquisitionCosts;
   const gain = futureVal - costBase;
   const cgt = gain > 0 ? gain * TAX_RATE : 0;
-  const netProceeds = futureVal - remainingDebt - cgt;
+  const agentFee = futureVal * agentFeeRate;
+  const netProceeds = futureVal - remainingDebt - cgt - agentFee;
   const totalReturn = netProceeds - equityNeeded + totalRentalIncome;
   const annualizedReturn = equityNeeded > 0
     ? (Math.pow(Math.max(0.001, (equityNeeded + totalReturn)) / equityNeeded, 1 / years) - 1) * 100 : 0;
@@ -143,11 +188,12 @@ export function compute(params) {
       const fv = secVal * Math.pow(1 + a, years);
       const g = fv - costBase;
       const c2 = g > 0 ? g * TAX_RATE : 0;
-      const np = fv - remainingDebt - c2;
+      const af = fv * agentFeeRate;
+      const np = fv - remainingDebt - c2 - af;
       return np - equityNeeded + totalRentalIncome;
     };
-    let lo = -0.10, hi = 0.20;
-    for (let i = 0; i < 50; i++) {
+    let lo = -0.10, hi = 0.30;
+    for (let i = 0; i < 60; i++) {
       const mid = (lo + hi) / 2;
       if (f(mid) > 0) hi = mid; else lo = mid;
     }
@@ -165,14 +211,16 @@ export function compute(params) {
 
   return {
     primVal, primDebt, income, otherAssets, secVal, ltv, rate, loanTerm, rent, opex, ownUse, years, appreciation,
-    secDebt, downPayment, stamp, equityNeeded, totalDebt, debtLimit, debtRoom,
+    residency, civilStatus, isNonResident, bunnfradrag,
+    secDebt, downPayment, stamp, acquisitionCosts, equityNeeded, totalDebt, debtLimit, debtRoom,
     primBaseLow, primBaseHigh, primBase, secBase, otherBase, otherFactor,
     grossWealth, netWealth, taxableWealth, wealthTax, wealthTaxNoSec, wealthTaxDelta,
     rentWeeks, rentFraction, grossRent, annualInterest, deductibleOpex,
     taxableRental: Math.max(0, taxableProfitOrLossY1), taxableProfitOrLossY1, rentalTax: rentalTaxY1,
     netCashflow, annualPrincipal, cashflowAfterPrincipal, grossYield, netYield,
     monthlyPayment, schedule: amort.schedule, totalInterestPaid, totalRentalTax,
-    futureVal, costBase, gain, cgt, remainingDebt, netProceeds, totalRentalIncome, totalReturn, annualizedReturn,
+    futureVal, costBase, gain, cgt, agentFee, agentFeeRate, acquisitionCostRate,
+    remainingDebt, netProceeds, totalRentalIncome, totalReturn, annualizedReturn,
     debtOk, ltvWarning, breakEvenAppr,
     brlGross, brlAfterCosts, nokReceived, nokReceivedMnok, totalCostBrl, iof, spread,
     THRESHOLD_COUPLE: WEALTH_BUNNFRADRAG_COUPLE,
@@ -205,7 +253,8 @@ export function recomputeScenario(base, override) {
   futureVal *= (1 + apprDrop);
   const gain = futureVal - base.costBase;
   const cgt = gain > 0 ? gain * TAX_RATE : 0;
-  const np = futureVal - remaining - cgt;
+  const agentFee = futureVal * (base.agentFeeRate ?? AGENT_FEE_RATE);
+  const np = futureVal - remaining - cgt - agentFee;
   const totalReturn = np - base.equityNeeded + totalRental;
   const ann = base.equityNeeded > 0
     ? (Math.pow(Math.max(0.001, base.equityNeeded + totalReturn) / base.equityNeeded, 1 / base.years) - 1) * 100 : 0;

@@ -28,7 +28,7 @@ export function renderMetrics(c) {
     <div class="metric">
       <div class="metric-label">${t('m_metric_equity')}</div>
       <div class="metric-val">${fmt(c.equityNeeded)}</div>
-      <div class="metric-sub">${c.propType === 'selveier' ? t('m_dokavg') + ' ' + fmt(c.stamp) : t('m_no_dokavg')}</div>
+      <div class="metric-sub">${c.propType === 'selveier' ? t('m_dokavg') + ' ' + fmt(c.stamp) : t('m_no_dokavg')} · ${t('s_acquisition')}: ${fmt(c.acquisitionCosts)}</div>
     </div>
     <div class="metric ${c.netCashflow >= 0 ? 'good' : 'warn'}">
       <div class="metric-label">${t('m_metric_cf')}</div>
@@ -50,14 +50,20 @@ export function renderMetrics(c) {
 
 export function renderWealth(c) {
   const wealthRows = [];
-  wealthRows.push(row(t('w_prim_low'), '+' + fmt(c.primBaseLow)));
-  if (c.primVal > 10) wealthRows.push(row(t('w_prim_high'), '+' + fmt(c.primBaseHigh)));
-  wealthRows.push(row(t('w_sec'), '+' + fmt(c.secBase)));
-  wealthRows.push(row(c.assetType === 'fund' ? t('w_other_fund') : t('w_other_cash'), '+' + fmt(c.otherBase)));
-  wealthRows.push(row(t('w_debt'), '−' + fmt(c.totalDebt)));
+  if (c.isNonResident) {
+    wealthRows.push(`<div class="note">${t('nonres_note')}</div>`);
+    wealthRows.push(row(t('w_sec'), '+' + fmt(c.secBase)));
+    wealthRows.push(row(t('w_debt') + ' (sekundærbolig)', '−' + fmt(c.secDebt)));
+  } else {
+    wealthRows.push(row(t('w_prim_low'), '+' + fmt(c.primBaseLow)));
+    if (c.primVal > 10) wealthRows.push(row(t('w_prim_high'), '+' + fmt(c.primBaseHigh)));
+    wealthRows.push(row(t('w_sec'), '+' + fmt(c.secBase)));
+    wealthRows.push(row(c.assetType === 'fund' ? t('w_other_fund') : t('w_other_cash'), '+' + fmt(c.otherBase)));
+    wealthRows.push(row(t('w_debt'), '−' + fmt(c.totalDebt)));
+  }
   wealthRows.push('<div class="divider"></div>');
   wealthRows.push(row(t('w_net'), fmt(c.netWealth), 'total'));
-  wealthRows.push(row(t('w_threshold'), fmt(c.THRESHOLD_COUPLE)));
+  wealthRows.push(row(t('w_bunnfradrag') + ' (' + t(c.civilStatus === 'single' ? 'opt_single' : 'opt_couple') + ')', fmt(c.bunnfradrag)));
   wealthRows.push(row(t('w_taxable'), fmt(c.taxableWealth), c.taxableWealth === 0 ? 'pos' : 'neg'));
   wealthRows.push(row(t('w_tax'), c.wealthTax === 0 ? t('zero') : fmt(c.wealthTax), c.wealthTax === 0 ? 'pos total' : 'neg total'));
   wealthRows.push('<div class="divider"></div>');
@@ -91,9 +97,10 @@ export function renderSale(c) {
     ${row(t('s_appr'), pct(c.appreciation * 100))}
     ${row(t('s_future') + ' ' + c.years + ' ' + t('years_unit'), fmt(c.futureVal))}
     <div class="divider"></div>
-    ${row(t('s_cost') + (c.propType === 'selveier' ? ' (incl. dokumentavgift 2,5%)' : ' (' + t('opt_borettslag') + ')'), fmt(c.costBase))}
+    ${row(t('s_cost') + (c.propType === 'selveier' ? ' (incl. dokumentavgift + ' + t('s_acquisition').toLowerCase() + ')' : ' (' + t('opt_borettslag') + ' + ' + t('s_acquisition').toLowerCase() + ')'), fmt(c.costBase))}
     ${row(t('s_gain'), fmtSign(c.gain))}
     ${row(t('s_cgt'), '−' + fmt(c.cgt))}
+    ${row(t('s_agentFee') + ' (' + pct(c.agentFeeRate * 100) + ')', '−' + fmt(c.agentFee))}
     ${row(t('s_remaining'), '−' + fmt(c.remainingDebt))}
     ${row(t('s_proceeds'), fmt(c.netProceeds), 'total')}
     <div class="divider"></div>
@@ -296,6 +303,20 @@ export function renderScenarios(c) {
 export function renderVerified() {
   const list = getVerified().map(v => `<li>${v.html}</li>`).join('');
   document.getElementById('verified-list').innerHTML = list;
+}
+
+export function renderValidation(v) {
+  const el = document.getElementById('validation-banner');
+  if (!el) return;
+  const errs = (v.errors || []).map(k => `<span class="val-pill val-err">${t(k)}</span>`);
+  const warns = (v.warnings || []).map(k => `<span class="val-pill val-warn">${t(k)}</span>`);
+  if (errs.length === 0 && warns.length === 0) {
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = errs.concat(warns).join(' ');
 }
 
 export function updateFxBox(fxRate, fxSource) {

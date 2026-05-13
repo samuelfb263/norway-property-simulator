@@ -4,7 +4,7 @@
   "description": "Financial simulator for Brazilian investors evaluating property investment in Norway",
   "scripts": {
     "dev": "npx serve . -p 8765",
-    "test": "node --test tests/compute.test.js"
+    "test": "node --test tests/"
   },
   "keywords": ["norway", "property", "investment", "simulator", "wealth-tax"],
   "license": "MIT",

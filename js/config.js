@@ -3,7 +3,9 @@ export const TAX_RATE = 0.22;
 export const WEALTH_TAX_RATE_TIER1 = 0.01;
 export const WEALTH_TAX_RATE_TIER2 = 0.011;
 export const WEALTH_BUNNFRADRAG_COUPLE = 3.8;
+export const WEALTH_BUNNFRADRAG_SINGLE = 1.9;
 export const WEALTH_TIER2_COUPLE = 21.5 * 2;
+export const WEALTH_TIER2_SINGLE = 21.5;
 export const PRIM_VALUATION_THRESHOLD = 10;
 export const PRIM_VALUATION_RATE_LOW = 0.25;
 export const PRIM_VALUATION_RATE_HIGH = 0.70;
@@ -17,6 +19,10 @@ export const FALLBACK_FX_RATE = 1.85;
 export const DEBT_RATIO_WARN_THRESHOLD = 0.92;
 export const MONTHLY_CF_NEUTRAL_THRESHOLD = 0.003;
 export const LOW_RETURN_THRESHOLD = 4;
+
+// Transaction-cost constants (D2)
+export const AGENT_FEE_RATE = 0.02;
+export const ACQUISITION_COST_RATE = 0.015;
 
 export const FX_API_PRIMARY = 'https://api.frankfurter.app/latest?from=BRL&to=NOK';
 export const FX_API_FALLBACK = 'https://open.er-api.com/v6/latest/BRL';
